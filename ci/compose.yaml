@@ -1,0 +1,61 @@
+# Local equivalent of what .github/workflows/ does, so a failure can be
+# reproduced and fixed without pushing.
+#
+#   docker compose -f ci/compose.yaml run --rm test           unit suite
+#   PHP_VERSION=8.3 docker compose -f ci/compose.yaml run --rm test
+#   docker compose -f ci/compose.yaml run --rm build          zip into ./dist
+#   docker compose -f ci/compose.yaml up serve                CMS on :8080
+#
+# EVO_SRC points at the Evolution CMS checkout to build against. It defaults to
+# a sibling of this repository, which is the layout these plugins are developed
+# in; set it if yours differs:
+#
+#   EVO_SRC=/c/projects/Opensource/evolution docker compose -f ci/compose.yaml run --rm test
+#
+# EVO_REPO / EVO_REF are passed through as well, so the same commands can build
+# against a published branch or a fork of the CMS.
+
+x-toolchain: &toolchain
+  build:
+    context: ..
+    dockerfile: ci/Dockerfile
+    args:
+      PHP_VERSION: ${PHP_VERSION:-8.4}
+  environment:
+    EVO_REPO: ${EVO_REPO:-}
+    EVO_REF: ${EVO_REF:-}
+  volumes:
+    # The plugin, live: an edit on the host is picked up by the next run
+    # without rebuilding the image.
+    - ..:/plugin
+    # The CMS to build against. Read-only: compose-evo.sh copies out of it and
+    # must never write back into a developer's working copy.
+    - ${EVO_SRC:-../../../evolution}:/evo-src:ro
+    - composer-cache:/composer-cache
+
+services:
+  # Build a CMS with this plugin and run the plugin's unit suite against it.
+  test:
+    <<: *toolchain
+    command: ["test"]
+
+  # Build an installed CMS with this plugin, smoke-test it, and drop a zip into
+  # ./dist - the same artifact the build workflow publishes.
+  build:
+    <<: *toolchain
+    command: ["build"]
+    volumes:
+      - ..:/plugin
+      - ${EVO_SRC:-../../../evolution}:/evo-src:ro
+      - composer-cache:/composer-cache
+      - ../dist:/out
+
+  # The same tree, served, for clicking through the plugin in a real manager.
+  serve:
+    <<: *toolchain
+    command: ["serve"]
+    ports:
+      - "${PORT:-8080}:80"
+
+volumes:
+  composer-cache:

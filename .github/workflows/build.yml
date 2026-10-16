@@ -1,0 +1,332 @@
+name: Build
+
+# The counterpart of evolution-cms/evolution's own Build workflow, run from the
+# plugin's repository instead of the CMS's: every push to main here produces an
+# Evolution CMS pre-installed *with this plugin*, in the same shapes upstream
+# publishes - one sqlite zip, and a docker image per PHP version and server.
+#
+# So the plugin's users get `docker pull ghcr.io/<this owner>/<this repo>:main`
+# and a zip, rather than a source tree and installation instructions.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # Manual runs let a fork reproduce exactly what happens here before proposing
+  # a change: same zip, same image, published to the fork's own GHCR namespace
+  # and releases. Actions -> Build -> Run workflow.
+  workflow_dispatch:
+    inputs:
+      docker:
+        description: 'Docker image'
+        type: choice
+        default: push
+        options:
+          - push # build and push to ghcr.io/<owner>/<repo>
+          - build-only # build and throw away, no GHCR write needed
+          - skip
+      release:
+        description: 'Also replace the nightly release with this build'
+        type: boolean
+        default: true
+      evo_repo:
+        description: 'Evolution CMS repository (empty = the one in ci/plugin.env)'
+        type: string
+        default: ''
+      evo_ref:
+        description: 'Evolution CMS branch or tag (empty = the one in ci/plugin.env)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Credentials of the pre-installed demo build. They are published together
+  # with the artifact, so this is a testing account and nothing else.
+  DEMO_ADMIN: admin
+  DEMO_EMAIL: admin@evo.local
+  DEMO_PASSWORD: Passw0rd123
+  DEMO_DATABASE: evolution
+  DEMO_PREFIX: evo_
+  # Which CMS the plugin is built into is decided by ci/plugin.env, so that the
+  # workflows and a local build can never disagree about it. Empty here means
+  # "whatever plugin.env says"; a manual run can override either.
+  EVO_REPO: ${{ inputs.evo_repo || '' }}
+  EVO_REF: ${{ inputs.evo_ref || '' }}
+  # Where the runtime recipes come from - the same source the CMS uses.
+  SALO2_REPO: https://github.com/evolution-cms/salo2
+  SALO2_REF: master
+
+jobs:
+  zip:
+    name: Installed CMS + plugin (zip, sqlite)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # required to publish the nightly release
+    outputs:
+      zip-name: ${{ steps.package.outputs.zip-name }}
+      plugin-zip-name: ${{ steps.package.outputs.plugin-zip-name }}
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # Built on the lowest supported version so the vendor tree stays
+          # usable on 8.4 and 8.5 alike.
+          php-version: '8.3'
+          extensions: ctype, dom, exif, fileinfo, filter, gd, iconv, intl, json, mbstring, openssl, pdo, pdo_sqlite, readline, simplexml, sqlite3, tokenizer, xml, xmlreader, zip
+          coverage: none
+          tools: composer:v2
+
+      # composer fetches dist archives from api.github.com, which rate-limits
+      # anonymous callers hard enough to fail a build outright - and a build of
+      # the CMS pulls a few hundred packages. The run's own token lifts that.
+      - name: Authenticate composer against GitHub
+        run: composer config --global --auth github-oauth.github.com "${{ github.token }}"
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php8.3-build-${{ hashFiles('composer.json', 'composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php8.3-build-
+
+      # Clone the CMS, wire this plugin into core/custom/composer.json, resolve,
+      # install on sqlite, publish the plugin's assets, run its migrations.
+      - name: Build Evolution CMS with this plugin
+        run: ci/compose-evo.sh "$RUNNER_TEMP/evo" --install
+
+      - name: Smoke test the build
+        run: ci/smoke.sh "$RUNNER_TEMP/evo"
+
+      - name: Package
+        id: package
+        working-directory: ${{ runner.temp }}/evo
+        run: |
+          evo_version=$(php -r '$c = json_decode(file_get_contents("core/composer.json"), true); echo $c["version"] ?? "0.0.0";')
+          plugin_version=$(php -r '$c = json_decode(file_get_contents($argv[1]), true); echo $c["version"] ?? "dev";' "$GITHUB_WORKSPACE/composer.json")
+          slug=$( . "$GITHUB_WORKSPACE/ci/plugin.env" && echo "$PLUGIN_SLUG" )
+          sha=$(git -C "$GITHUB_WORKSPACE" rev-parse --short HEAD)
+          name="evolution-cms-${evo_version}-${slug}-${GITHUB_REF_NAME//\//-}-${sha}-sqlite.zip"
+
+          # install/ is left empty by the installer's --removeInstall=y; the
+          # rest is repository tooling that has no place in a shipped build.
+          rm -rf .git .github install core/tests core/phpunit.xml AGENTS.md
+          # A leading "." keeps dotfiles such as core/.install, which the
+          # manager requires to consider the CMS installed.
+          zip -qr "/tmp/${name}" .
+          mv "/tmp/${name}" "$GITHUB_WORKSPACE/"
+
+          # The plugin on its own, for someone who already runs Evolution CMS
+          # and only wants to drop this into it.
+          plugin_name="${slug}-${plugin_version}-${sha}.zip"
+          ( cd "$GITHUB_WORKSPACE" && zip -qr "/tmp/${plugin_name}" . -x '.git/*' '.github/*' 'ci/*' '*.zip' )
+          mv "/tmp/${plugin_name}" "$GITHUB_WORKSPACE/"
+
+          cd "$GITHUB_WORKSPACE"
+          ls -lh "${name}" "${plugin_name}"
+          {
+            echo "zip-name=${name}"
+            echo "plugin-zip-name=${plugin_name}"
+            echo "version=${evo_version}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: evolution-cms-with-plugin-sqlite
+          path: |
+            ${{ steps.package.outputs.zip-name }}
+            ${{ steps.package.outputs.plugin-zip-name }}
+          retention-days: 14
+          compression-level: 0 # already zips
+
+      # Nightly release: anonymous direct download, unlike workflow artifacts.
+      # The tag is recreated on every push, so the link always serves the latest
+      # build of the branch.
+      - name: Publish nightly release
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.package.outputs.zip-name }}
+          PLUGIN_ZIP: ${{ steps.package.outputs.plugin-zip-name }}
+        run: |
+          evo_ref=$( . ci/plugin.env && echo "$EVO_REF" )
+          tag="nightly-${GITHUB_REF_NAME}"
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$tag" "$ZIP" "$PLUGIN_ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Nightly ${GITHUB_REF_NAME} ($(date -u +%Y-%m-%d))" \
+            --notes "Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA}, against Evolution CMS \`${evo_ref}\`.
+
+          - \`${ZIP}\` — Evolution CMS pre-installed on sqlite **with this plugin already installed**: unpack into a docroot and open it, no database server needed.
+          - \`${PLUGIN_ZIP}\` — the plugin on its own, for an existing Evolution CMS.
+
+          Manager: \`${DEMO_ADMIN}\` / \`${DEMO_PASSWORD}\`
+
+          A testing build with published credentials. Not for production."
+
+  docker:
+    name: Docker image PHP ${{ matrix.php }} ${{ matrix.server }} (GHCR)
+    needs: zip
+    # Pull requests get a read-only token and cannot push packages, so the job
+    # is skipped there - including on the run that stays attached to a merged
+    # PR. The push to main, and workflow_dispatch, are what build the image.
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.docker != 'skip')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      # One combination failing still tells us about the others, and the tags of
+      # the ones that did build stay usable.
+      fail-fast: false
+      matrix:
+        # The same grid the CMS publishes, so a user can swap the upstream image
+        # for this one without changing anything else about their setup.
+        php: ['8.3', '8.4', '8.5']
+        # Three different PHP SAPIs, not three front ends over one PHP: apache
+        # runs mod_php, nginx talks FastCGI to php-fpm, and FrankenPHP embeds
+        # PHP inside Caddy. They cannot share a base image, so each is a build.
+        server: [apache, nginx, frankenphp]
+    env:
+      # "build-only" exercises the whole Dockerfile without needing GHCR write
+      # access, which is the safe first run on a fresh fork.
+      PUSH_IMAGE: ${{ github.event_name != 'workflow_dispatch' || inputs.docker == 'push' }}
+      PHP_VERSION: ${{ matrix.php }}
+      SERVER: ${{ matrix.server }}
+      # The combination that carries the unsuffixed tags.
+      DEFAULT_PHP: '8.4'
+      DEFAULT_SERVER: apache
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the build
+        uses: actions/download-artifact@v8
+        with:
+          name: evolution-cms-with-plugin-sqlite
+          path: /tmp/artifact
+
+      - name: Unpack the build
+        run: |
+          mkdir -p build
+          unzip -q "/tmp/artifact/${{ needs.zip.outputs.zip-name }}" -d build
+
+      # The runtime recipes come from Salo, the Evolution CMS flavour of Sail.
+      # Directory naming there is "<php>" for apache and "<php>-<server>" for
+      # the rest.
+      - name: Build the Salo runtime image
+        run: |
+          git clone --depth 1 --branch "$SALO2_REF" "$SALO2_REPO" /tmp/salo2
+          if [ "$SERVER" = "apache" ]; then
+            recipe="/tmp/salo2/runtimes/${PHP_VERSION}"
+          else
+            recipe="/tmp/salo2/runtimes/${PHP_VERSION}-${SERVER}"
+          fi
+          test -d "$recipe" || {
+            echo "::error::salo2 has no ${SERVER} runtime for PHP ${PHP_VERSION} (looked in ${recipe})"
+            exit 1
+          }
+          docker build -t "evo-salo-runtime:${PHP_VERSION}-${SERVER}" "$recipe"
+
+      - name: Log in to GHCR
+        if: env.PUSH_IMAGE == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the image
+        id: image
+        run: |
+          # The image lives under whoever owns this plugin repository, named
+          # after the repository itself - so a fork publishes to its own
+          # namespace without editing anything.
+          image=$(echo "ghcr.io/${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          # Manual runs can start from any branch, and "/" is not legal in a tag.
+          branch="${GITHUB_REF_NAME//\//-}"
+          sha=$(git rev-parse --short HEAD)
+          # apache is the assumed server, so it takes the bare -phpX.Y tag and
+          # the others are suffixed. The default php+server pair additionally
+          # answers to the plain branch tag.
+          if [ "$SERVER" = "$DEFAULT_SERVER" ]; then
+            base="${branch}-php${PHP_VERSION}"
+          else
+            base="${branch}-php${PHP_VERSION}-${SERVER}"
+          fi
+          tags=("${base}" "${base}-${sha}")
+          if [ "$PHP_VERSION" = "$DEFAULT_PHP" ] && [ "$SERVER" = "$DEFAULT_SERVER" ]; then
+            tags+=("${branch}" "${branch}-${sha}")
+          fi
+          args=()
+          for t in "${tags[@]}"; do args+=(-t "${image}:${t}"); done
+          docker build \
+            -f .github/docker/Dockerfile \
+            --build-arg "BASE_IMAGE=evo-salo-runtime:${PHP_VERSION}-${SERVER}" \
+            "${args[@]}" \
+            .
+          echo "ref=${image}:${base}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+
+      # The zip job proves the build works under php's own dev server. This
+      # proves the rewrite rules of each server actually serve the CMS, which is
+      # the whole point of building three of them.
+      - name: Smoke test the image
+        run: |
+          # No --rm: a container that dies on startup still has to be readable
+          # by docker logs below, which is the only diagnosis available here.
+          docker run -d --name evo-smoke -p 8899:80 "${{ steps.image.outputs.ref }}"
+          for i in $(seq 1 30); do
+            sleep 1
+            curl -sf -o /dev/null http://127.0.0.1:8899/ && break
+          done
+          front=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8899/)
+          # The manager answers 404 without an Accept-Language header by design.
+          manager=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept-Language: en-US,en;q=0.9' http://127.0.0.1:8899/manager/index.php)
+          # A friendly URL has to be routed into index.php rather than answered
+          # by the web server itself. Whether the CMS then renders a page or an
+          # error is not the point - reaching PHP at all is - so this looks for
+          # the header PHP adds to its own responses.
+          friendly=$(curl -s -D - -o /dev/null http://127.0.0.1:8899/no-such-page)
+          echo "front=$front manager=$manager"
+          docker logs evo-smoke 2>&1 | tail -30
+          docker rm -f evo-smoke > /dev/null
+          test "$front" = "200"
+          test "$manager" = "200"
+          echo "$friendly" | grep -qi '^x-powered-by: php' || {
+            echo "::error::friendly URL was not routed to index.php on ${SERVER}"
+            echo "$friendly"
+            exit 1
+          }
+
+      - name: Push
+        run: |
+          image="${{ steps.image.outputs.image }}"
+          if [ "$PUSH_IMAGE" = "true" ]; then
+            # Only this leg's tags exist locally, so --all-tags stays scoped to
+            # the php+server combination this job built.
+            docker push --all-tags "$image"
+            hint="docker run --rm -p 8080:80 ${{ steps.image.outputs.ref }}"
+          else
+            hint="# built as ${{ steps.image.outputs.ref }}, not pushed (docker=build-only)"
+          fi
+          {
+            echo "### Image — PHP ${PHP_VERSION} / ${SERVER}"
+            echo '```'
+            echo "$hint"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

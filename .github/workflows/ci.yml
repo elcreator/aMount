@@ -1,0 +1,135 @@
+name: CI
+
+# Every push and pull request against this plugin, not against the CMS: the
+# CMS is a dependency here, pulled in fresh by ci/compose-evo.sh.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The extension set the CMS's own CI uses, plus gd for image handling.
+  PHP_EXTENSIONS: ctype, dom, exif, fileinfo, filter, gd, iconv, intl, json, mbstring, openssl, pdo, pdo_sqlite, readline, simplexml, tokenizer, xml, xmlreader, zip
+  # Which CMS the plugin is built against is decided by ci/plugin.env, so that
+  # the workflows and a local `docker compose -f ci/compose.yaml run test` can
+  # never disagree about it. Set EVO_REPO/EVO_REF here only to override it.
+
+jobs:
+  tests:
+    name: Unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      # One PHP version failing still tells us about the others.
+      fail-fast: false
+      matrix:
+        # 8.3 is the lowest version the plugin's composer.json supports and 8.4
+        # is what the CMS is developed on. 8.5 is the version the CMS publishes
+        # images for but does not yet gate merges on, so a failure there is
+        # reported without blocking - remove continue-on-error once upstream
+        # treats it as required.
+        php: ['8.3', '8.4']
+        experimental: [false]
+        include:
+          - php: '8.5'
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      # composer fetches dist archives from api.github.com, which rate-limits
+      # anonymous callers hard enough to fail a build outright - and a build of
+      # the CMS pulls a few hundred packages. The run's own token lifts that.
+      - name: Authenticate composer against GitHub
+        run: composer config --global --auth github-oauth.github.com "${{ github.token }}"
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-tests-${{ hashFiles('composer.json', 'composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-tests-
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+
+      # ci/plugin.env is the single per-repository file in this pipeline, and
+      # how the suite is run is one of the things it decides.
+      - name: Read pipeline settings
+        id: cfg
+        run: . ci/plugin.env && echo "test-mode=$TEST_MODE" >> "$GITHUB_OUTPUT"
+
+      # Only the borrowed-core mode needs a core here: it runs on the core's
+      # Pest binary and its bootstrap borrows the core's autoloader. A plugin
+      # with its own vendor tree gets the CMS from composer instead, and the
+      # install job below puts every one of them inside a real core anyway.
+      - name: Build Evolution CMS with this plugin
+        if: steps.cfg.outputs.test-mode == 'borrowed-core'
+        run: ci/compose-evo.sh "$RUNNER_TEMP/evo" --dev
+
+      - name: Run the plugin's unit suite
+        run: ci/run-tests.sh "$RUNNER_TEMP/evo"
+
+  install:
+    name: Install into the CMS (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      # composer fetches dist archives from api.github.com, which rate-limits
+      # anonymous callers hard enough to fail a build outright - and a build of
+      # the CMS pulls a few hundred packages. The run's own token lifts that.
+      - name: Authenticate composer against GitHub
+        run: composer config --global --auth github-oauth.github.com "${{ github.token }}"
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-install-${{ hashFiles('composer.json', 'composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-install-
+
+      # What the unit suite cannot cover: that the package resolves inside a
+      # real CMS, that its provider is discovered, that its migrations apply
+      # and that the site still answers afterwards.
+      - name: Build and install Evolution CMS with this plugin
+        run: ci/compose-evo.sh "$RUNNER_TEMP/evo" --install
+
+      - name: Smoke test
+        run: ci/smoke.sh "$RUNNER_TEMP/evo"

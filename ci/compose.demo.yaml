@@ -1,0 +1,45 @@
+# The demo stack: the CMS with aMount installed (ci/compose.yaml's `serve`) plus
+# an S3-compatible server with a seeded bucket, so the S3 driver can be shown
+# against a real S3 API (signed requests, multipart uploads, path-style).
+#
+# The S3 server is Adobe's S3Mock: MinIO no longer publishes its community
+# images on Docker Hub, and S3Mock creates its bucket from one environment
+# variable, so there is no init container to keep alive.
+#
+#   ci/demo.sh                                   build, start, seed, print URLs
+#   docker compose -f ci/compose.demo.yaml down -v   throw it all away
+#
+# CMS:  http://localhost:8080/manager/   admin / Passw0rd123
+# S3:   http://localhost:9090            (any credentials), bucket amount-demo
+# Inside the stack the S3 endpoint is http://s3:9090.
+
+services:
+  serve:
+    extends:
+      file: compose.yaml
+      service: serve
+    environment:
+      # Read by `artisan amount:demo --s3` to pre-configure the S3 mount.
+      AMOUNT_DEMO_S3_ENDPOINT: http://s3:9090
+      AMOUNT_DEMO_S3_BUCKET: amount-demo
+      AMOUNT_DEMO_S3_KEY: amountdemo
+      AMOUNT_DEMO_S3_SECRET: amountdemo-secret
+      AMOUNT_DEMO_S3_REGION: us-east-1
+    depends_on:
+      s3:
+        condition: service_started
+
+  s3:
+    image: adobe/s3mock:latest
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: amount-demo
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+      debug: "false"
+    ports:
+      - "${S3_PORT:-9090}:9090"
+    volumes:
+      - s3-data:/s3mock
+
+volumes:
+  s3-data:
+  composer-cache:

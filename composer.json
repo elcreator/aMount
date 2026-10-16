@@ -1,0 +1,54 @@
+{
+  "name": "elcreator/amount",
+  "description": "aMount — mount cloud and remote storage (S3, Google Drive, Dropbox, OneDrive, SFTP, WebDAV and more, via Flysystem) into the Evolution CMS manager: pick folders, and big files such as backups are uploaded in the background, per manager, within what that manager may see.",
+  "type": "evolutioncms-plugin",
+  "keywords": ["evo", "evocms", "evolution", "evolution-cms", "flysystem", "s3", "google-drive", "dropbox", "backup", "storage", "cloud"],
+  "license": "GPL-3.0-or-later",
+  "require": {
+    "php": "^8.3",
+    "evolution-cms/evolution": "^3.5.2",
+    "league/flysystem": "^3.10",
+    "league/flysystem-aws-s3-v3": "^3.10",
+    "league/flysystem-sftp-v3": "^3.0.14",
+    "league/flysystem-webdav": "^3.6"
+  },
+  "require-dev": {
+    "pestphp/pest": "^4.0"
+  },
+  "suggest": {
+    "league/flysystem-ftp": "FTP/FTPS driver (needs ext-ftp, which many PHP builds omit, so it is not a hard requirement)",
+    "league/flysystem-async-aws-s3": "AsyncAws S3 driver (lighter alternative to the AWS SDK)",
+    "league/flysystem-google-cloud-storage": "Google Cloud Storage driver",
+    "azure-oss/storage-blob-flysystem": "Azure Blob Storage driver (the successor of the abandoned league/flysystem-azure-blob-storage)",
+    "league/flysystem-gridfs": "MongoDB GridFS driver (needs ext-mongodb)",
+    "league/flysystem-ziparchive": "Write into a ZIP archive",
+    "masbug/flysystem-google-drive-ext": "Google Drive driver (personal accounts, shared drives)",
+    "spatie/flysystem-dropbox": "Dropbox driver",
+    "justus/flysystem-onedrive": "Microsoft OneDrive driver",
+    "platformcommunity/flysystem-bunnycdn": "Bunny.net storage zone driver",
+    "alphasnow/aliyun-oss-flysystem": "Alibaba Cloud OSS driver",
+    "overtrue/flysystem-cos": "Tencent Cloud COS driver",
+    "overtrue/flysystem-qiniu": "Qiniu Kodo driver",
+    "seiger/stask": "Alternative queue manager: aMount runs its uploads as an sTask worker when it is installed"
+  },
+  "autoload": {
+    "psr-4": {
+      "Elcreator\\aMount\\": "src/"
+    }
+  },
+  "scripts": {
+    "test": "pest --no-coverage"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Elcreator\\aMount\\aMountServiceProvider"
+      ]
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
+}
