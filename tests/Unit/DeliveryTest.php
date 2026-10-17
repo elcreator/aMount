@@ -157,7 +157,8 @@ it('reports the status of a run to its owner only', function () {
 
     expect($status)->toHaveKeys(['run', 'status', 'percent', 'finished', 'files_total', 'bytes_done'])
         ->and($status['run'])->toBe($run)
-        ->and(Delivery::for(4)->status($run)['run'])->toBe($run)
+        // Not even an administrator reads a run on somebody else's personal mount.
+        ->and(amountDeliverError(fn () => Delivery::for(4)->status($run))->status)->toBe(404)
         ->and(amountDeliverError(fn () => Delivery::for(3)->status($run))->status)->toBe(404)
         ->and(amountDeliverError(fn () => Delivery::for(2)->status('nope'))->status)->toBe(404);
 });

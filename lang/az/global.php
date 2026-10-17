@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Server sorğunu emal edərkən xəta verdi. Veb serverin və PHP-nin xəta jurnallarına baxın.',
     'ui_probe_why_3xx' => 'Sorğu yönləndirildi. Saytın qarşısında yönləndirmə olmadan yenidən yoxlayın.',
     'ui_probe_why_other' => 'Sorğuya cavab verildi, lakin aMount tərəfindən deyil. Ünvanı başqa qayda və ya həmin adlı real fayl emal edir.',
+    'error_confirm_required' => 'Bu əməliyyatı geri qaytarmaq mümkün deyil. Davam etmək üçün sorğunu confirm parametri true olaraq təyin edilməklə təkrarlayın.',
 ];

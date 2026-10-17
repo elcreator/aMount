@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Il server ha avuto un errore durante l\'elaborazione della richiesta. Controlla i log di errore del web server e di PHP.',
     'ui_probe_why_3xx' => 'La richiesta è stata reindirizzata. Riprova senza un reindirizzamento davanti al sito.',
     'ui_probe_why_other' => 'La richiesta ha ricevuto risposta, ma non da aMount. Un\'altra regola o un file reale con quel nome gestisce l\'indirizzo.',
+    'error_confirm_required' => 'Questa operazione non può essere annullata. Ripeti la richiesta con confirm impostato su true per procedere.',
 ];

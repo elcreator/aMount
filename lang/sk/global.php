@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Server pri spracovaní požiadavky zlyhal. Pozrite chybové protokoly webového servera a PHP.',
     'ui_probe_why_3xx' => 'Požiadavka bola presmerovaná. Otestujte znova bez presmerovania pred webom.',
     'ui_probe_why_other' => 'Požiadavka bola zodpovedaná, ale nie aMount. Adresu obsluhuje iné pravidlo alebo skutočný súbor s takým názvom.',
+    'error_confirm_required' => 'Túto akciu nie je možné vrátiť späť. Ak chcete pokračovať, zopakujte požiadavku s parametrom confirm nastaveným na true.',
 ];

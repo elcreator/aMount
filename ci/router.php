@@ -43,10 +43,27 @@ if ($uri === '/' || is_file($file) || is_dir($file)) {
     return false;
 }
 
-$query = 'q=' . rawurlencode(ltrim($uri, '/'));
+// ng.inx: `location /manager { rewrite ^/manager/(.*)$ /manager/index.php last; }`
+// Every manager URL that is not a file (module pages, actions) is the manager's
+// front controller, which has its own router; only the rest is a friendly URL.
+if (str_starts_with($uri, '/manager/')) {
+    // In-process rather than through php-cgi: the manager reads $_SERVER and its
+    // own router from REQUEST_URI, so no rewrite of the query string is needed,
+    // and the session it shares with the files served natively stays one session.
+    $_SERVER['SCRIPT_NAME'] = $_SERVER['PHP_SELF'] = '/manager/index.php';
+    $_SERVER['SCRIPT_FILENAME'] = $root . '/manager/index.php';
+    chdir($root . '/manager');
 
-if (($_SERVER['QUERY_STRING'] ?? '') !== '') {
-    $query .= '&' . $_SERVER['QUERY_STRING'];
+    require $root . '/manager/index.php';
+
+    return true;
+} else {
+    $script = '/index.php';
+    $query = 'q=' . rawurlencode(ltrim($uri, '/'));
+
+    if (($_SERVER['QUERY_STRING'] ?? '') !== '') {
+        $query .= '&' . $_SERVER['QUERY_STRING'];
+    }
 }
 
 $env = [
@@ -60,8 +77,8 @@ $env = [
     'REQUEST_URI' => $_SERVER['REQUEST_URI'],
     'QUERY_STRING' => $query,
     'DOCUMENT_ROOT' => $root,
-    'SCRIPT_NAME' => '/index.php',
-    'SCRIPT_FILENAME' => $root . '/index.php',
+    'SCRIPT_NAME' => $script,
+    'SCRIPT_FILENAME' => $root . $script,
     'REMOTE_ADDR' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
     'REMOTE_PORT' => $_SERVER['REMOTE_PORT'] ?? '0',
     'PATH' => (string) getenv('PATH'),

@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'De server liep vast bij het verwerken van het verzoek. Bekijk de foutlogs van de webserver en van PHP.',
     'ui_probe_why_3xx' => 'Het verzoek is omgeleid. Test opnieuw zonder een omleiding vóór de site.',
     'ui_probe_why_other' => 'Het verzoek is beantwoord, maar niet door aMount. Een andere regel of een echt bestand met die naam handelt het adres af.',
+    'error_confirm_required' => 'Dit kan niet ongedaan worden gemaakt. Herhaal het verzoek met confirm ingesteld op true om door te gaan.',
 ];

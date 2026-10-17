@@ -9,7 +9,7 @@ use League\Flysystem\FilesystemAdapter;
 /**
  * Amazon S3 and everything that speaks its API: Cloudflare R2, DigitalOcean
  * Spaces, MinIO, Wasabi, Backblaze B2, Hetzner Object Storage, Scaleway,
- * Yandex Object Storage, Supabase Storage ...
+ * Supabase Storage ...
  *
  * `preset` is a form helper only: choosing one fills `endpoint`, `region` and
  * `path_style`, which are what is stored. A preset that goes out of date never
@@ -27,7 +27,6 @@ final class S3Driver extends Driver
         'minio' => ['MinIO (self-hosted)', 'http://minio:9000', 'us-east-1', true],
         'hetzner' => ['Hetzner Object Storage', 'https://<location>.your-objectstorage.com', 'fsn1', true],
         'scaleway' => ['Scaleway Object Storage', 'https://s3.<region>.scw.cloud', 'fr-par', false],
-        'yandex' => ['Yandex Object Storage', 'https://storage.yandexcloud.net', 'ru-central1', false],
         'supabase' => ['Supabase Storage', 'https://<project>.storage.supabase.co/storage/v1/s3', 'us-east-1', true],
         'other' => ['Other S3-compatible', '', 'us-east-1', true],
     ];

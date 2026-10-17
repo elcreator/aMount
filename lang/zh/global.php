@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => '服务器在处理请求时出错。请查看 Web 服务器和 PHP 的错误日志。',
     'ui_probe_why_3xx' => '请求被重定向。请在站点前没有重定向的情况下重新测试。',
     'ui_probe_why_other' => '请求得到了响应，但并非来自 aMount。该地址由其他规则或同名的真实文件处理。',
+    'error_confirm_required' => '此操作无法撤销。请将 confirm 设为 true 后重新发送请求以继续。',
 ];

@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Serveren fejlede under behandlingen af forespørgslen. Se webserverens og PHP\'s fejllogge.',
     'ui_probe_why_3xx' => 'Forespørgslen blev omdirigeret. Test igen uden en omdirigering foran webstedet.',
     'ui_probe_why_other' => 'Forespørgslen blev besvaret, men ikke af aMount. En anden regel eller en rigtig fil med det navn håndterer adressen.',
+    'error_confirm_required' => 'Dette kan ikke fortrydes. Gentag forespørgslen med confirm sat til true for at fortsætte.',
 ];

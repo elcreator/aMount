@@ -3,25 +3,19 @@
 namespace Elcreator\aMount\Mcp\Tools;
 
 use Elcreator\aMount\Mcp\AmountTool;
+use Elcreator\aMount\Mcp\Operations;
 use Elcreator\aMount\Services\Delivery;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('amount.mounts')]
-#[Description('List the storage mounts (Google Drive, Dropbox, S3, ...) the acting manager can send files to. Optionally resolve a spoken name such as "my google drive"; an unclear name returns the candidates to ask about.')]
+#[Description('Read-only. List the storage mounts (Google Drive, Dropbox, S3, ...) the acting manager may use: uuid, name, driver, scope (personal/site/config) and health status. Never returns credentials. With `name` (e.g. "my google drive") it resolves one mount; if several match the call fails with `candidates=[{uuid,name,...}]` - ask the person which one, then use that uuid in later calls.')]
 class MountsTool extends AmountTool
 {
-    protected function run(Delivery $delivery, Request $request): array
+    protected function run(Delivery $delivery, array $args): array
     {
-        $hint = trim((string) $request->get('name', ''));
-
-        if ($hint === '') {
-            return ['mounts' => $delivery->mounts()];
-        }
-
-        return ['mount' => $delivery->resolveMount($hint)];
+        return Operations::mounts($delivery, $args);
     }
 
     /**
@@ -30,7 +24,7 @@ class MountsTool extends AmountTool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'name' => $schema->string()->description('Optional: a mount name or kind, e.g. "google drive"'),
+            'name' => $schema->string()->description('Optional mount name or kind, e.g. "google drive" or "S3 backups"'),
         ];
     }
 }

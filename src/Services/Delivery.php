@@ -25,6 +25,9 @@ use Throwable;
  */
 final class Delivery
 {
+    /** The most runs or rules one listing returns: an agent's context is not a database dump. */
+    public const LIST_LIMIT = 50;
+
     private function __construct(private readonly Actor $actor)
     {
     }
@@ -126,36 +129,198 @@ final class Delivery
     }
 
     /**
-     * Progress of a run this user started or owns.
+     * Progress of a run this user started or owns (a measurement included).
      *
      * @return array<string, mixed>
      * @throws AmountException
      */
     public function status(string $runUuid): array
     {
+        return $this->presentRun($this->findRun($runUuid));
+    }
+
+    /**
+     * The newest runs the actor may see, newest first, at most {@see self::LIST_LIMIT}.
+     *
+     * @return array{runs:array<int, array<string, mixed>>}
+     */
+    public function runs(bool $activeOnly = false, ?string $ruleUuid = null): array
+    {
         $this->actor->authorize();
 
-        $run = Run::query()->where('uuid', trim($runUuid))->first();
-        $rule = $run === null ? null : Rule::query()->find($run->rule_id);
+        $query = Run::query()->orderByDesc('id');
 
-        if ($run === null || $rule === null || ((int) $rule->owner_id !== $this->actor->userId() && !$this->actor->mayManage())) {
-            throw AmountException::notFound(AmountException::text('aMount::global.what_run'));
+        if ($activeOnly) {
+            $query->whereIn('status', Run::ACTIVE);
         }
 
-        return [
-            'run' => $run->uuid,
-            'status' => $run->status,
-            'direction' => $run->direction,
-            'finished' => $run->isFinished(),
-            'percent' => $run->percent(),
-            'files_total' => (int) $run->files_total,
-            'files_done' => (int) $run->files_done,
-            'files_failed' => (int) $run->files_failed,
-            'bytes_total' => (int) $run->bytes_total,
-            'bytes_done' => (int) $run->bytes_done,
-            'current_file' => $run->current_file,
-            'message' => $run->message,
-        ];
+        if ($ruleUuid !== null && trim($ruleUuid) !== '') {
+            $query->where('rule_id', $this->findRule($ruleUuid)->getKey());
+        }
+
+        $out = [];
+
+        // Visibility is decided per run (see runVisible), so over-read a little and cut.
+        foreach ($query->limit(self::LIST_LIMIT * 4)->get() as $run) {
+            if ($this->runVisible($run)) {
+                $out[] = $this->presentRun($run);
+            }
+
+            if (count($out) >= self::LIST_LIMIT) {
+                break;
+            }
+        }
+
+        return ['runs' => $out];
+    }
+
+    /**
+     * Ask a run to stop (cooperative). Cancelling a finished run changes nothing.
+     *
+     * @return array<string, mixed>
+     * @throws AmountException
+     */
+    public function cancel(string $runUuid): array
+    {
+        $run = $this->findRun($runUuid);
+
+        if ($run->isActive()) {
+            (new Runs())->cancel($run);
+            $run = $run->fresh() ?? $run;
+        }
+
+        return $this->presentRun($run);
+    }
+
+    /**
+     * The folder rules the actor owns (all of them for an administrator), minus
+     * those on somebody else's personal mount. Compact: no patterns, no owners.
+     *
+     * @return array{rules:array<int, array<string, mixed>>}
+     */
+    public function rules(): array
+    {
+        $this->actor->authorize();
+
+        $rules = new Rules($this->actor);
+        $mounts = new Mounts($this->actor);
+        $out = [];
+
+        foreach ($rules->list() as $rule) {
+            if ($rule->mount === null || !$mounts->canUse($rule->mount)) {
+                continue;
+            }
+
+            $out[] = array_intersect_key($rules->present($rule), array_flip([
+                'uuid', 'name', 'mount', 'mount_name', 'local_path', 'remote_prefix', 'mode', 'visibility',
+                'interval_minutes', 'enabled', 'last_run_at', 'next_run_at', 'index', 'last_run',
+            ]));
+
+            if (count($out) >= self::LIST_LIMIT * 2) {
+                break;
+            }
+        }
+
+        return ['rules' => $out];
+    }
+
+    /**
+     * One page (50) of the files the index knows for a rule, i.e. what was
+     * offloaded and can be recalled. Only files the actor can still see in the
+     * file manager are listed.
+     *
+     * @param array{status?:string, q?:string} $filters
+     * @return array{data:array<int, array<string, mixed>>, page:int, per_page:int, total:int, pages:int}
+     * @throws AmountException
+     */
+    public function files(string $ruleUuid, array $filters = [], int $page = 1): array
+    {
+        $this->actor->authorize();
+
+        return (new Files($this->actor))->entries($this->findRule($ruleUuid), $filters, $page);
+    }
+
+    /**
+     * Bring already offloaded files (ids from {@see files()}) back into a site
+     * folder, in the background. Every check of the page applies: ownership,
+     * mount access, visible destination, no executables, no overwrite unless asked.
+     *
+     * @param int[] $entryIds
+     * @return array{run:string, files:int, to:?string}
+     * @throws AmountException
+     */
+    public function recall(array $entryIds, ?string $to = null, bool $overwrite = false, bool $deleteRemote = false): array
+    {
+        $this->actor->authorize();
+
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', $entryIds)))), 0, 200);
+
+        if ($ids === []) {
+            throw AmountException::fields(['files' => AmountException::text('aMount::global.error_field_required')]);
+        }
+
+        // Entries of a rule the actor cannot see are "unknown", never "someone else's".
+        $files = new Files($this->actor);
+
+        foreach ($ids as $id) {
+            $files->find($id);
+        }
+
+        try {
+            $run = (new Runs())->recall($ids, $this->actor->userId(), [
+                'to' => $to !== null && trim($to) !== '' ? (string) Paths::clean($to) : null,
+                'overwrite' => $overwrite,
+                'delete_remote' => $deleteRemote,
+            ]);
+        } catch (RuntimeException $e) {
+            throw new AmountException('run_refused', $e->getMessage(), 409);
+        }
+
+        return ['run' => $run->uuid, 'files' => count($ids), 'to' => $to];
+    }
+
+    /**
+     * Delete one offloaded object on the store (the local file is not touched).
+     * Irreversible, so the caller must pass `confirm` explicitly.
+     *
+     * @return array{deleted:bool, id:int}
+     * @throws AmountException
+     */
+    public function deleteRemote(int $entryId, bool $confirm): array
+    {
+        $this->actor->authorize();
+
+        if (!$confirm) {
+            throw AmountException::invalid('error_confirm_required');
+        }
+
+        $files = new Files($this->actor);
+        $files->delete($files->find($entryId));
+
+        return ['deleted' => true, 'id' => $entryId];
+    }
+
+    /**
+     * Start counting what a mount (or a rule's remote or local folder) holds.
+     * Poll {@see status()}: the finished run carries `usage`.
+     *
+     * @return array{run:string}
+     * @throws AmountException
+     */
+    public function measure(?string $mountHint, ?string $ruleUuid = null, ?string $path = null, bool $local = false): array
+    {
+        $this->actor->authorize();
+
+        $hasRule = $ruleUuid !== null && trim($ruleUuid) !== '';
+        $target = $hasRule ? $this->findRule((string) $ruleUuid) : $this->mountFor($mountHint);
+
+        try {
+            $run = (new Runs())->measure($target, $this->actor->userId(), $path, $hasRule && $local);
+        } catch (RuntimeException $e) {
+            throw new AmountException('run_refused', $e->getMessage(), 409);
+        }
+
+        return ['run' => $run->uuid];
     }
 
     /**
@@ -253,6 +418,83 @@ final class Delivery
         }
 
         return ['run' => $run->uuid, 'mount' => $mount->uuid, 'files' => count($ids), 'to' => $to];
+    }
+
+    /** @throws AmountException a rule the actor may not use, or whose mount is not theirs, is "not found" */
+    private function findRule(string $uuid): Rule
+    {
+        $rule = (new Rules($this->actor))->find($uuid);
+
+        if ($rule->mount === null || !(new Mounts($this->actor))->canUse($rule->mount)) {
+            throw AmountException::notFound(AmountException::text('aMount::global.what_rule'));
+        }
+
+        return $rule;
+    }
+
+    /** @throws AmountException */
+    private function findRun(string $uuid): Run
+    {
+        $this->actor->authorize();
+
+        $run = Run::query()->where('uuid', trim($uuid))->first();
+
+        if ($run === null || !$this->runVisible($run)) {
+            throw AmountException::notFound(AmountException::text('aMount::global.what_run'));
+        }
+
+        return $run;
+    }
+
+    /**
+     * The page's rule (started it, owns the rule, or administers) plus one
+     * more: a run on somebody else's personal mount is invisible even to an
+     * administrator, because its file names and messages come from that store.
+     */
+    private function runVisible(Run $run): bool
+    {
+        if (!$this->actor->mayUse()) {
+            return false;
+        }
+
+        $rule = $run->rule_id > 0 ? Rule::query()->with('mount')->find($run->rule_id) : null;
+        $payload = is_array($run->payload_json) ? $run->payload_json : [];
+        $mount = $rule?->mount;
+
+        if ($mount === null && !empty($payload['mount'])) {
+            $mount = Mount::query()->where('uuid', (string) $payload['mount'])->first();
+        }
+
+        if ($mount !== null && $mount->isPersonal() && (int) $mount->owner_id !== $this->actor->userId()) {
+            return false;
+        }
+
+        return $this->actor->mayManage()
+            || (int) $run->started_by === $this->actor->userId()
+            || ($rule !== null && (int) $rule->owner_id === $this->actor->userId());
+    }
+
+    /** @return array<string, mixed> */
+    private function presentRun(Run $run): array
+    {
+        $payload = is_array($run->payload_json) ? $run->payload_json : [];
+
+        return array_filter([
+            'run' => $run->uuid,
+            'status' => $run->status,
+            'direction' => $run->direction,
+            'finished' => $run->isFinished(),
+            'percent' => $run->percent(),
+            'files_total' => (int) $run->files_total,
+            'files_done' => (int) $run->files_done,
+            'files_failed' => (int) $run->files_failed,
+            'bytes_total' => (int) $run->bytes_total,
+            'bytes_done' => (int) $run->bytes_done,
+            'current_file' => $run->current_file,
+            'message' => $run->message,
+            // A finished measurement: the breakdown the question was about.
+            'usage' => $run->direction === 'size' ? ($payload['usage'] ?? null) : null,
+        ], static fn ($v) => $v !== null);
     }
 
     private function mountFor(?string $hint): Mount

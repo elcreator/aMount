@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Der Server ist bei der Verarbeitung der Anfrage ausgefallen. Sehen Sie in die Fehlerprotokolle von Webserver und PHP.',
     'ui_probe_why_3xx' => 'Die Anfrage wurde umgeleitet. Testen Sie erneut ohne Umleitung vor der Website.',
     'ui_probe_why_other' => 'Die Anfrage wurde beantwortet, aber nicht von aMount. Eine andere Regel oder eine echte Datei mit diesem Namen bedient die Adresse.',
+    'error_confirm_required' => 'Das lässt sich nicht rückgängig machen. Wiederholen Sie die Anfrage mit confirm auf true, um fortzufahren.',
 ];

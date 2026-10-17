@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Serwer zgłosił błąd podczas obsługi żądania. Sprawdź logi błędów serwera WWW i PHP.',
     'ui_probe_why_3xx' => 'Żądanie zostało przekierowane. Przetestuj ponownie bez przekierowania przed witryną.',
     'ui_probe_why_other' => 'Na żądanie udzielono odpowiedzi, ale nie przez aMount. Ten adres obsługuje inna reguła lub rzeczywisty plik o tej nazwie.',
+    'error_confirm_required' => 'Tej operacji nie można cofnąć. Aby kontynuować, powtórz żądanie z parametrem confirm ustawionym na true.',
 ];

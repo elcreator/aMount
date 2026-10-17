@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Palvelin kaatui pyyntöä käsitellessään. Tarkista verkkopalvelimen ja PHP:n virhelokit.',
     'ui_probe_why_3xx' => 'Pyyntö ohjattiin uudelleen. Testaa uudelleen ilman uudelleenohjausta sivuston edessä.',
     'ui_probe_why_other' => 'Pyyntöön vastattiin, mutta ei aMountilla. Osoitetta käsittelee jokin toinen sääntö tai oikea samanniminen tiedosto.',
+    'error_confirm_required' => 'Tätä ei voi perua. Jatka toistamalla pyyntö niin, että confirm on true.',
 ];

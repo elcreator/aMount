@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Server při zpracování požadavku selhal. Zkontrolujte chybové logy webového serveru a PHP.',
     'ui_probe_why_3xx' => 'Požadavek byl přesměrován. Otestujte znovu bez přesměrování před webem.',
     'ui_probe_why_other' => 'Požadavek byl zodpovězen, ale ne aMount. Adresu obsluhuje jiné pravidlo nebo skutečný soubor se stejným názvem.',
+    'error_confirm_required' => 'Tuto akci nelze vrátit zpět. Pro pokračování zopakujte požadavek s parametrem confirm nastaveným na true.',
 ];

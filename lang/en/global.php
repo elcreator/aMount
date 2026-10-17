@@ -29,6 +29,7 @@ return [
     'error_mount_unusable' => 'This mount does not exist or you may not use it.',
     'error_rule_running' => 'This rule is running right now. Cancel the run first.',
     'error_owner_invalid' => 'The chosen owner may not use aMount.',
+    'error_confirm_required' => 'This cannot be undone. Repeat the request with confirm set to true to proceed.',
     'error_path_invalid' => 'This is not a valid path.',
     'error_path_missing' => 'This folder or file does not exist.',
     'error_path_denied' => 'You cannot see this location in the file manager (:reason).',

@@ -57,8 +57,11 @@ final class Files
         $total = (clone $query)->count();
         $rows = $query->orderByDesc('id')->forPage($page, self::PER_PAGE)->get();
 
+        // One query for the rule names of this page, not one per row.
+        $names = Rule::query()->whereIn('id', $rows->pluck('rule_id')->unique()->all())->pluck('name', 'id');
+
         return [
-            'data' => $rows->map(fn (FileEntry $e) => $this->present($e))->all(),
+            'data' => $rows->map(fn (FileEntry $e) => $this->present($e) + ['rule_name' => (string) ($names[$e->rule_id] ?? '')])->all(),
             'page' => $page,
             'per_page' => self::PER_PAGE,
             'total' => $total,

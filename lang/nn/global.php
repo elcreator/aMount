@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Tenaren feila under handsaming av førespurnaden. Sjå i feilloggane til vevtenaren og PHP.',
     'ui_probe_why_3xx' => 'Førespurnaden vart vidaresend. Test på nytt utan ei vidaresending framfor nettstaden.',
     'ui_probe_why_other' => 'Førespurnaden vart svara på, men ikkje av aMount. Ein annan regel eller ei ekte fil med det namnet handterer adressa.',
+    'error_confirm_required' => 'Dette kan ikkje angrast. Gjenta førespurnaden med confirm sett til true for å halde fram.',
 ];

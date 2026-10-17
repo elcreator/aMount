@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Servern misslyckades när begäran hanterades. Titta i felloggarna för webbservern och PHP.',
     'ui_probe_why_3xx' => 'Begäran omdirigerades. Testa igen utan en omdirigering framför webbplatsen.',
     'ui_probe_why_other' => 'Begäran besvarades, men inte av aMount. En annan regel eller en riktig fil med det namnet hanterar adressen.',
+    'error_confirm_required' => 'Detta kan inte ångras. Upprepa begäran med confirm satt till true för att fortsätta.',
 ];

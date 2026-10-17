@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'El servidor falló al procesar la petición. Revise los registros de errores del servidor web y de PHP.',
     'ui_probe_why_3xx' => 'La petición fue redirigida. Pruebe de nuevo sin una redirección delante del sitio.',
     'ui_probe_why_other' => 'La petición fue respondida, pero no por aMount. Otra regla o un archivo real con ese nombre atiende la dirección.',
+    'error_confirm_required' => 'Esta acción no se puede deshacer. Repite la petición con confirm establecido en true para continuar.',
 ];

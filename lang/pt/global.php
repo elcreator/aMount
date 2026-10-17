@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'O servidor falhou ao tratar o pedido. Consulte os registos de erros do servidor web e do PHP.',
     'ui_probe_why_3xx' => 'O pedido foi redirecionado. Teste novamente sem um redirecionamento à frente do site.',
     'ui_probe_why_other' => 'O pedido foi respondido, mas não pelo aMount. Outra regra ou um ficheiro real com esse nome trata do endereço.',
+    'error_confirm_required' => 'Esta ação não pode ser desfeita. Repita o pedido com confirm definido como true para continuar.',
 ];

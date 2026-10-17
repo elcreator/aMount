@@ -438,6 +438,14 @@ final class Mounts
     public function resolve(?string $hint): array
     {
         $all = $this->visible()->all();
+
+        // The uuid an earlier amount.mounts call returned is the precise way to say "this one".
+        foreach ($all as $m) {
+            if ($hint !== null && strcasecmp(trim($hint), (string) $m->uuid) === 0) {
+                return ['mount' => $m, 'candidates' => [$m]];
+            }
+        }
+
         $needle = self::words((string) $hint);
 
         if ($needle === '') {

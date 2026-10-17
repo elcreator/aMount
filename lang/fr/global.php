@@ -477,4 +477,5 @@ return [
     'ui_probe_why_5xx' => 'Le serveur a échoué lors du traitement de la requête. Consultez les journaux d\'erreurs du serveur web et de PHP.',
     'ui_probe_why_3xx' => 'La requête a été redirigée. Testez à nouveau sans redirection en amont du site.',
     'ui_probe_why_other' => 'La requête a reçu une réponse, mais pas d\'aMount. Une autre règle ou un vrai fichier portant ce nom traite l\'adresse.',
+    'error_confirm_required' => 'Cette action est irréversible. Répétez la requête avec confirm défini sur true pour continuer.',
 ];

@@ -40,6 +40,12 @@ else
     echo "amount:demo is not available in this build yet - nothing was seeded."
 fi
 
+step "Start the queue worker and the scheduler (what cron + supervisor do on a real server)"
+# system:task-worker --once takes one queued transfer; schedule:run is the
+# cron line that fires `amount:tick` for rules with a schedule. Without them
+# "Run now" in the page would queue a run nobody picks up.
+"${compose[@]}" exec -T -d serve sh -c 'cd /build && while true; do php core/artisan system:task-worker --once --silent; php core/artisan schedule:run --quiet; sleep 3; done'
+
 cat <<EOF
 
 aMount demo is up.
