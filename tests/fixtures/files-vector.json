@@ -1,0 +1,18 @@
+{
+  "computerPrivate": "0101010101010101010101010101010101010101010101010101010101010101",
+  "computerPublic": "pOCSkrZRwni5dyxWn1-puxPZBrRqtoyd-dwrRAn4ogk",
+  "down0": "rcuMflDm5c2kb9A6yGscHGtiBN9x",
+  "down0Plain": "hello",
+  "envelope": "AV3+3Ttr1H9voo7hXZadW7DqU3dNSIva+d8cbgEks+8izo060cy2M+x7cMF4FKXHbs0CloUFDTRHRboFhw5YfVmDKL+jDdSKFZkhnlJaQ6kjr6+iX+enPItomrlVfGEICMgekLG0DSsTkxVODGM4RsOECfgxL2oLUmpTExsc/DUavJagFQeeCxUwrAIk9cVbpbbRirsvoLq0l/Qj8SpckoJbF+5mn95Pw3VK+wO9rQ1laiXMZNyQ4+HkaO7LVoDEX2uiz/MEh6pvWhup7v7IVRUvUQ4+GRtnmqv1iSJmo1Yx",
+  "ephPrivate": "0303030303030303030303030303030303030303030303030303030303030303",
+  "request": "{\"id\":\"00112233445566778899aabbccddeeff\",\"ts\":1800000000,\"op\":\"read\",\"share\":\"sqlbackups\",\"path\":\"2025/08/db.sql.gz\",\"site\":{\"name\":\"site.com\"}}",
+  "response": "AAAAAAAAAAB4bGQrdJDyuREK7B8yodPIg/KTy2ujaWLAotUiIBHJ7UkSrIo=",
+  "responsePlain": "{\"ok\":true,\"size\":5}",
+  "siteFingerprint": "Z6SX-BRST-XUQS",
+  "sitePrivate": "0202020202020202020202020202020202020202020202020202020202020202",
+  "ticket": "eyJ3Ijo3LCJ1IjoxMiwibSI6InJlYWQiLCJleHAiOjE4MDAwMDAzMDB9.4DW_27-cJy186DZK27T0htsI9Rt9P5oUAoc111XPRPg",
+  "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "tokenHash": "a8ae6e6ee929abea3afcfc5258c8ccd6f85273e0d4626d26c7279f3250f77c8e",
+  "up0": "sl7Vn3AQx1P7tSj79Eycl1wrbnru",
+  "up0Plain": "world"
+}

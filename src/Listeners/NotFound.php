@@ -2,6 +2,7 @@
 
 namespace Elcreator\aMount\Listeners;
 
+use Elcreator\aMount\Computer\LocalMailbox;
 use Elcreator\aMount\Services\Serve;
 use Elcreator\aMount\Services\ServerConfig;
 use Elcreator\aMount\Support\Config;
@@ -43,11 +44,20 @@ final class NotFound
     /** The answer for a request, or null when this is none of aMount's business. Testable: nothing is sent. */
     public function response(string $requestUri, Request $request, string $basePath = '/'): ?Response
     {
-        if (!Config::isEnabled() || !in_array($request->getMethod(), ['GET', 'HEAD'], true)) {
+        if (!Config::isEnabled()) {
             return null;
         }
 
         $path = self::sitePath($requestUri, $basePath);
+
+        // This site as the server for its own transfer with a computer (a mailbox): any method.
+        if ($path !== null && str_starts_with($path, LocalMailbox::PREFIX)) {
+            return LocalMailbox::handle($path, $request);
+        }
+
+        if (!in_array($request->getMethod(), ['GET', 'HEAD'], true)) {
+            return null;
+        }
 
         if ($path === null || $path === '') {
             return null;

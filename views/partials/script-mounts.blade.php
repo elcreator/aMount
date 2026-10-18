@@ -209,12 +209,83 @@
         });
     }
 
+    // ------------------------------------------------------------------
+    // The account's computers (ai.artur.work shared folders)
+    // ------------------------------------------------------------------
+
+    function computersBox() {
+        var list = h('div', { 'class': 'am-computers' });
+        var msg = h('p', { 'class': 'am-msg', role: 'status' });
+        var code = h('b', { 'class': 'am-code' });
+        var box = h('section', { 'class': 'am-card am-computers-box', 'aria-label': t('ui_computers_title') }, [
+            h('div', { 'class': 'am-card-head' }, [
+                h('h3', { 'class': 'am-card-title', text: t('ui_computers_title') }),
+                btn(t('ui_computers_load'), { small: true, icon: 'refresh', onclick: function (b) { load(b); } })
+            ]),
+            h('p', { 'class': 'am-help', text: t('ui_computers_intro') }),
+            h('div', { 'class': 'am-kv' }, [h('span', { text: t('ui_computers_code') }), code]),
+            msg, list
+        ]);
+
+        function shareLine(sh) {
+            var access = sh.access === 'write' ? t('ui_computers_access_write') : sh.access === 'read' ? t('ui_computers_access_read') : t('ui_computers_access_none');
+            var quota = sh.quota ? ' · ' + t('ui_computers_quota', { used: sh.used >= 0 ? Math.round(sh.used / 1048576) : '?', quota: Math.round(sh.quota / 1048576) }) : '';
+            return h('li', null, [h('b', { text: sh.name }), h('span', { text: ' - ' + access + quota })]);
+        }
+
+        function load(b) {
+            if (b) { b.disabled = true; }
+            setMsg(msg, t('ui_computers_loading'));
+            api('GET', '/computers').then(function (r) {
+                if (b) { b.disabled = false; }
+                clear(list);
+                if (!r || r.ok === false) { setMsg(msg, errMsg(r), 'error'); return; }
+                code.textContent = r.site && r.site.code ? r.site.code : '';
+                setMsg(msg, r.error ? r.error : (r.computers.length ? '' : t('ui_computers_none')), r.error ? 'error' : '');
+                r.computers.forEach(function (c) {
+                    add(list, h('div', { 'class': 'am-computer' }, [
+                        h('div', { 'class': 'am-card-head' }, [
+                            h('b', { text: c.name }),
+                            h('div', { 'class': 'am-card-badges' }, [
+                                badge(c.online ? t('ui_computers_online') : t('ui_computers_offline'), c.online ? 'ok' : ''),
+                                c.own ? null : badge(t('ui_computers_shared'), 'warn')
+                            ])
+                        ]),
+                        c.problem ? h('p', { 'class': 'am-error-text', text: c.problem }) : null,
+                        h('ul', { 'class': 'am-shares' }, (c.shares || []).map(shareLine)),
+                        h('div', { 'class': 'am-card-actions' }, [
+                            c.mount ? null : btn(t('ui_computers_mount'), { small: true, icon: 'plus', onclick: function (bb) {
+                                bb.disabled = true;
+                                api('POST', '/computers/mount', { computer: String(c.id) }).then(function (res) {
+                                    if (!res || res.ok === false) { bb.disabled = false; setMsg(msg, errMsg(res), 'error'); return; }
+                                    announce(t('ui_computers_mounted', { name: c.name }));
+                                    loadBoot();
+                                });
+                            } }),
+                            c.problem && S.flags.may_manage ? btn(t('ui_computers_trust'), { small: true, onclick: function () {
+                                confirmBox({ title: t('ui_computers_trust'), message: t('ui_computers_trust_confirm', { name: c.name }), confirm: t('ui_computers_trust') }).then(function (k) {
+                                    if (!k.ok) { return; }
+                                    api('POST', '/computers/' + c.id + '/trust', {}).then(function () { load(); });
+                                });
+                            } }) : null
+                        ])
+                    ]));
+                });
+            });
+        }
+
+        return box;
+    }
+
     R.mounts = function () {
         var panel = clear($('am-panel-mounts'));
         add(panel, h('div', { 'class': 'am-toolbar' }, [
             h('div', { 'class': 'am-grow' }, h('p', { 'class': 'am-help', text: t('ui_mounts_intro') })),
             btn(t('ui_mount_add'), { primary: true, icon: 'plus', onclick: function () { mountDialog(null); } })
         ]));
+        if (S.drivers.some(function (d) { return d.id === 'ai-computer' && d.available !== false; })) {
+            add(panel, computersBox());
+        }
         if (!S.mounts.length) {
             add(panel, emptyState('cloud-upload', t('ui_mounts_empty_title'), t('ui_mounts_empty_text'),
                 btn(t('ui_mount_add'), { primary: true, icon: 'plus', onclick: function () { mountDialog(null); } })));

@@ -91,6 +91,13 @@ final class Delivery
         $move = !empty($options['move']) || ($options['mode'] ?? '') === Rule::MODE_MOVE;
         $origin = (string) ($options['origin'] ?? 'api');
         $rules = new Rules($this->actor);
+        $onConflict = ($options['on_conflict'] ?? 'skip') === 'newer' ? 'newer' : 'skip';
+
+        // Into a computer's folder: its quota is known before anything moves (both sides know
+        // each other's limits); the computer still enforces it per file.
+        if ($mount->driver === 'ai-computer') {
+            $this->checkComputerQuota($mount, $path, $folder);
+        }
 
         try {
             $rule = $rules->createEphemeral([
@@ -101,6 +108,7 @@ final class Delivery
                 'mode' => $move ? Rule::MODE_MOVE : Rule::MODE_COPY,
                 'visibility' => !empty($options['public']) ? Rule::PUBLIC : Rule::PRIVATE,
                 'min_age' => 0,
+                'on_conflict' => $onConflict,
             ], $origin);
         } catch (AmountException $e) {
             // The page says why a folder was refused; here the cause is the file.
@@ -349,26 +357,62 @@ final class Delivery
 
         $base = $mounts->base($mount);
         $key = Paths::remote($base, $remote);
+        $recursive = !empty($options['recursive']);
+        $limit = $recursive ? 2000 : 200;
         $found = [];
 
         try {
             $fs = $mount->filesystem();
 
             if ($fs->fileExists($key)) {
-                $found[] = ['key' => $key, 'name' => basename($key)];
+                $found[] = ['key' => $key, 'rel' => basename($key)];
             } else {
-                foreach ($fs->listContents($key, false) as $item) {
-                    if ($item->isFile() && count($found) < 200) {
-                        $found[] = ['key' => $item->path(), 'name' => basename($item->path())];
+                foreach ($fs->listContents($key, $recursive) as $item) {
+                    if (!$item->isFile()) {
+                        continue;
                     }
+                    if (count($found) >= $limit) {
+                        throw new AmountException('too_many_files', AmountException::text('aMount::global.error_fetch_too_many', ['max' => $limit]), 422);
+                    }
+                    // Kept relative to the folder asked for: a recursive fetch rebuilds its subfolders.
+                    $rel = ltrim(substr($item->path(), strlen(rtrim($key, '/'))), '/');
+                    $found[] = ['key' => $item->path(), 'rel' => $recursive ? $rel : basename($item->path())];
                 }
+            }
+        } catch (AmountException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            // The store's own reason (a computer's refusal, say) is under Flysystem's wrapper.
+            $reason = $e->getPrevious() !== null ? $e->getMessage() . ': ' . $e->getPrevious()->getMessage() : $e->getMessage();
+
+            throw new AmountException('fetch_failed', Mounts::redact($reason, $mount), 502);
+        }
+
+        if ($found === []) {
+            throw AmountException::notFound(AmountException::text('aMount::global.what_remote_file'));
+        }
+
+        // Files from a computer always fill a site folder only up to its quota. Checked for the
+        // whole batch before anything moves, so a fetch that cannot fit says so at once.
+        $quota = $mount->driver === 'ai-computer' ? \Elcreator\aMount\Drivers\ComputerDriver::siteQuota($mount->credentials()) : null;
+        $sizes = [];
+
+        try {
+            foreach ($found as $i => $file) {
+                $sizes[$i] = [(int) $fs->fileSize($file['key']), (int) $fs->lastModified($file['key'])];
             }
         } catch (Throwable $e) {
             throw new AmountException('fetch_failed', Mounts::redact($e->getMessage(), $mount), 502);
         }
 
-        if ($found === []) {
-            throw AmountException::notFound(AmountException::text('aMount::global.what_remote_file'));
+        if ($quota !== null) {
+            $used = Transfer::folderBytes(Paths::absolute($to));
+            $incoming = array_sum(array_column($sizes, 0));
+            if ($used + $incoming > $quota) {
+                throw new AmountException('quota_exceeded', AmountException::text('aMount::global.error_site_quota', [
+                    'folder' => $to, 'quota' => round($quota / 1048576), 'used' => round($used / 1048576), 'incoming' => round($incoming / 1048576),
+                ]), 409);
+            }
         }
 
         // A throw-away rule anchors the entries to the destination folder and its checks.
@@ -382,10 +426,9 @@ final class Delivery
         try {
             $ids = [];
 
-            foreach ($found as $file) {
-                $local = Paths::remote($to, $file['name']);
-                $size = (int) $fs->fileSize($file['key']);
-                $mtime = (int) $fs->lastModified($file['key']);
+            foreach ($found as $i => $file) {
+                $local = Paths::remote($to, $file['rel']);
+                [$size, $mtime] = $sizes[$i];
 
                 $ids[] = FileEntry::query()->create([
                     'rule_id' => $rule->getKey(),
@@ -402,9 +445,12 @@ final class Delivery
                 ])->getKey();
             }
 
+            $onConflict = $options['on_conflict'] ?? null;
             $run = (new Runs())->recall($ids, $this->actor->userId(), [
                 'to' => $to,
                 'overwrite' => !empty($options['overwrite']),
+                'on_conflict' => in_array($onConflict, ['skip', 'newer'], true) ? $onConflict : null,
+                'quota' => $quota,
                 'delete_remote' => !empty($options['delete_remote']),
             ]);
         } catch (RuntimeException $e) {
@@ -505,6 +551,11 @@ final class Delivery
             return $found['mount'];
         }
 
+        // "From my computer mypc": a computer of the account needs no prepared mount.
+        if ($hint !== null && ($computer = (new Computers($this->actor))->mountFor($hint)) !== null) {
+            return $computer;
+        }
+
         if ($found['candidates'] === []) {
             throw AmountException::notFound(AmountException::text('aMount::global.what_mount'));
         }
@@ -512,6 +563,42 @@ final class Delivery
         $mounts = new Mounts($this->actor);
 
         throw AmountException::ambiguous(array_map(static fn (Mount $m) => $mounts->summary($m), $found['candidates']));
+    }
+
+    /** The account's computers, their folders and this site's code (`amount.computers`). @return array<string, mixed> */
+    public function computers(): array
+    {
+        return (new Computers($this->actor))->overview();
+    }
+
+    /** @throws AmountException when the files would not fit the computer folder's quota */
+    private function checkComputerQuota(Mount $mount, string $path, string $folder): void
+    {
+        $absolute = Paths::absolute($path);
+        $bytes = is_file($absolute) ? (int) filesize($absolute) : Transfer::folderBytes($absolute);
+        $config = $mount->credentials();
+        $share = trim((string) ($config['share'] ?? ''), '/') ?: explode('/', trim($folder, '/'))[0];
+
+        try {
+            $adapter = null;
+            foreach ((new Computers($this->actor))->overview()['computers'] as $c) {
+                if ((string) $c['id'] === (string) ($config['computer'] ?? '') || mb_strtolower((string) $c['name']) === mb_strtolower((string) ($config['computer'] ?? ''))) {
+                    foreach ((array) $c['shares'] as $s) {
+                        if (strcasecmp((string) $s['name'], $share) === 0 && (int) ($s['quota'] ?? 0) > 0 && (int) ($s['used'] ?? -1) >= 0
+                            && (int) $s['used'] + $bytes > (int) $s['quota']) {
+                            throw new AmountException('quota_exceeded', AmountException::text('aMount::global.error_computer_quota', [
+                                'share' => $share, 'quota' => round((int) $s['quota'] / 1048576), 'used' => round((int) $s['used'] / 1048576),
+                                'incoming' => round($bytes / 1048576),
+                            ]), 409);
+                        }
+                    }
+                }
+            }
+        } catch (AmountException $e) {
+            throw $e;
+        } catch (Throwable) {
+            // Unknown here: the computer still refuses per file, with its reason.
+        }
     }
 
     private function discard(Rule $rule): void

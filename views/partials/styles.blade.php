@@ -266,4 +266,9 @@
         .am-shell { padding: 1rem 0.75rem 3rem; }
         .am-cards { grid-template-columns: 1fr; }
     }
+    .am-computers-box { margin: 12px 0 16px; }
+    .am-computer { border-top: 1px solid var(--am-border); padding: 10px 0 4px; }
+    .am-shares { margin: 6px 0; padding-left: 18px; color: var(--am-muted); }
+    .am-shares b { color: var(--am-text); }
+    .am-code { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 1px; }
 </style>

@@ -70,6 +70,7 @@ final class Drivers
             new S3Driver(), new AsyncS3Driver(), new GoogleDriveDriver(), new DropboxDriver(), new OneDriveDriver(),
             new GcsDriver(), new AzureDriver(), new BunnyDriver(), new AliyunDriver(), new CosDriver(), new QiniuDriver(),
             new SftpDriver(), new FtpDriver(), new WebDavDriver(), new LocalDriver(), new ZipDriver(), new GridFsDriver(),
+            new ComputerDriver(),
         ] as $driver) {
             self::$drivers[$driver->id()] = $driver;
         }

@@ -271,6 +271,14 @@ final class Rules
             $errors['max_size'] = AmountException::text('aMount::global.error_size_range');
         }
 
+        // When the name is taken at the other end: keep what is there, or let a newer file
+        // replace an older one (never an older one a newer). Destructive, so explicit.
+        $onConflict = (string) ($get('on_conflict', 'skip') ?: 'skip');
+
+        if (!in_array($onConflict, ['skip', 'newer'], true)) {
+            $errors['on_conflict'] = AmountException::text('aMount::global.error_on_conflict');
+        }
+
         $include = self::patterns($get('include', $existing?->include_json ?? []));
         $exclude = self::patterns($get('exclude', $existing?->exclude_json ?? []));
 
@@ -306,6 +314,7 @@ final class Rules
             'max_size' => $maxSize,
             'interval_minutes' => $interval,
             'enabled' => filter_var($get('enabled', true), FILTER_VALIDATE_BOOLEAN),
+            'on_conflict' => $onConflict,
         ];
     }
 

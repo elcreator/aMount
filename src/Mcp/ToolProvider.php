@@ -12,6 +12,7 @@ use Elcreator\aMount\Mcp\Tools\MeasureTool;
 use Elcreator\aMount\Mcp\Tools\MountsTool;
 use Elcreator\aMount\Mcp\Tools\RecallTool;
 use Elcreator\aMount\Mcp\Tools\RulesTool;
+use Elcreator\aMount\Mcp\Tools\ComputersTool;
 use Elcreator\aMount\Mcp\Tools\RunsTool;
 use Elcreator\aMount\Mcp\Tools\StatusTool;
 use EvolutionCMS\eMCP\Contracts\ToolProvider as Contract;
@@ -39,6 +40,7 @@ final class ToolProvider implements Contract
         return [
             MountsTool::class, BrowseTool::class, RulesTool::class, FilesTool::class, RunsTool::class, StatusTool::class,
             MeasureTool::class, DeliverTool::class, FetchTool::class, RecallTool::class, CancelTool::class, DeleteRemoteTool::class,
+            ComputersTool::class,
         ];
     }
 }

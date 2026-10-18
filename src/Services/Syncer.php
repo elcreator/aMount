@@ -662,7 +662,10 @@ final class Syncer
 
         try {
             $driver = Drivers::get($mount->driver);
-            $fs->writeStream($entry->remote_path, $stream, $driver->writeConfig($mount->options(), (string) $rule->visibility));
+            // The file's own size and date travel with it (a computer decides a conflict by
+            // "newer"), and so does what the rule allows when the name is taken.
+            $fs->writeStream($entry->remote_path, $stream, $driver->writeConfig($mount->options(), (string) $rule->visibility)
+                + ['amount_size' => $size, 'amount_mtime' => $mtime, 'amount_on_conflict' => (string) ($rule->on_conflict ?: 'skip')]);
 
             $remoteSize = (int) $fs->fileSize($entry->remote_path);
 
@@ -674,10 +677,14 @@ final class Syncer
                 fclose($stream);
             }
 
-            // A half-written object is worse than none: it has the right name.
-            try {
-                $fs->delete($entry->remote_path);
-            } catch (Throwable $ignored) {
+            // A half-written object is worse than none: it has the right name. Not on a store
+            // that writes atomically: there the name may hold somebody's newer file that the
+            // store just refused to replace.
+            if (!Drivers::get($mount->driver)->writesAtomically()) {
+                try {
+                    $fs->delete($entry->remote_path);
+                } catch (Throwable $ignored) {
+                }
             }
 
             if ($e instanceof TransferAborted || Runs::stopped($this->run)) {

@@ -140,6 +140,9 @@ class Runs
         $to = $options['to'] ?? null;
         $to = ($to === null || trim((string) $to) === '') ? null : (string) $to;
         $overwrite = !empty($options['overwrite']);
+        // skip | newer: a name already taken here is decided per file while the run works (and
+        // said in its result), instead of refusing the whole download up front.
+        $onConflict = in_array($options['on_conflict'] ?? null, ['skip', 'newer'], true) ? $options['on_conflict'] : null;
         $scope = Scope::for($principal);
 
         foreach ($entries as $entry) {
@@ -148,7 +151,7 @@ class Runs
             }
 
             // Throws a plain-English reason when the destination is not allowed.
-            Transfer::destination($scope, $entry, $to, $overwrite);
+            Transfer::destination($scope, $entry, $to, $onConflict !== null ? Transfer::LATER : $overwrite);
         }
 
         $run = Run::query()->create([
@@ -161,6 +164,8 @@ class Runs
                 'entries' => $ids,
                 'to' => $to,
                 'overwrite' => $overwrite,
+                'on_conflict' => $onConflict,
+                'quota' => isset($options['quota']) ? (int) $options['quota'] : null,
                 'delete_remote' => !empty($options['delete_remote']),
                 'results' => [],
             ],

@@ -36,23 +36,85 @@ final class Operations
     /** @param array<string, mixed> $a */
     public static function deliver(Delivery $d, array $a): array
     {
+        self::checkSite($a);
+
         return $d->deliver(
             self::required($a, 'path'),
             self::text($a, 'mount') ?: null,
             self::text($a, 'folder') ?: null,
-            ['move' => self::flag($a, 'move'), 'public' => self::flag($a, 'public'), 'origin' => 'mcp']
+            ['move' => self::flag($a, 'move'), 'public' => self::flag($a, 'public'), 'origin' => 'mcp',
+                'on_conflict' => self::conflictPolicy($a)]
         );
     }
 
     /** @param array<string, mixed> $a */
     public static function fetch(Delivery $d, array $a): array
     {
+        self::checkSite($a);
+
         return $d->fetch(
             self::required($a, 'mount'),
             self::required($a, 'remote'),
             self::required($a, 'to'),
-            ['overwrite' => self::flag($a, 'overwrite'), 'delete_remote' => self::flag($a, 'delete_remote'), 'origin' => 'mcp']
+            ['on_conflict' => self::conflictPolicy($a), 'recursive' => self::flag($a, 'recursive'),
+                'delete_remote' => self::flag($a, 'delete_remote'), 'origin' => 'mcp']
         );
+    }
+
+    /** @param array<string, mixed> $a */
+    public static function computers(Delivery $d, array $a): array
+    {
+        return $d->computers();
+    }
+
+    /**
+     * What happens when a name is already taken at the other end, for this call. Replacing a
+     * file is destructive, so it follows eMCP's destructive permission
+     * (`CallPermissions::destructiveAllowed()`): allowed, a newer file replaces an older one
+     * (never the reverse); not allowed, the existing file is kept and the result says so. An
+     * agent that asks for `newer` without the permission is refused rather than quietly
+     * downgraded.
+     *
+     * @param array<string, mixed> $a
+     */
+    public static function conflictPolicy(array $a): string
+    {
+        $asked = self::text($a, 'on_conflict');
+        $asked = $asked === '' && self::flag($a, 'overwrite') ? 'newer' : $asked;
+        $allowed = self::destructiveAllowed();
+        if ($asked !== '' && !in_array($asked, ['skip', 'newer'], true)) {
+            throw AmountException::fields(['on_conflict' => AmountException::text('aMount::global.error_on_conflict')]);
+        }
+        if ($asked === 'newer' && !$allowed) {
+            throw new AmountException('destructive_denied', AmountException::text('aMount::global.error_destructive_denied'), 403);
+        }
+
+        return $asked !== '' ? $asked : ($allowed ? 'newer' : 'skip');
+    }
+
+    /** Whether this MCP call may destroy data (eMCP soft dependency; without eMCP: no). */
+    public static function destructiveAllowed(): bool
+    {
+        $gate = '\\EvolutionCMS\\eMCP\\Support\\CallPermissions';
+
+        return class_exists($gate) && $gate::destructiveAllowed();
+    }
+
+    /**
+     * "...to site.com": the agent may name the site; a site this installation does not serve is
+     * refused with the ones it does, instead of writing somewhere else.
+     *
+     * @param array<string, mixed> $a
+     */
+    private static function checkSite(array $a): void
+    {
+        $site = self::text($a, 'site');
+        if ($site === '' || \Elcreator\aMount\Computer\SiteAddress::find($site) !== null) {
+            return;
+        }
+        $domains = \Elcreator\aMount\Computer\SiteAddress::domains();
+        throw new AmountException('wrong_site', AmountException::text('aMount::global.error_wrong_site',
+            ['site' => $site, 'domains' => $domains === [] ? '-' : implode(', ', $domains)]), 409);
     }
 
     /** @param array<string, mixed> $a */

@@ -121,7 +121,8 @@ class Mount extends Model
     /** @throws RuntimeException when the driver's package is missing or the settings are unusable */
     public function filesystem(): Filesystem
     {
-        return Drivers::get($this->driver)->filesystem($this->credentials(), $this->options());
+        // The owner travels along for drivers that resolve a key per manager (ComputerDriver).
+        return Drivers::get($this->driver)->filesystem($this->credentials(), $this->options() + ['_owner_id' => $this->owner_id]);
     }
 
     public function rules()

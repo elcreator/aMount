@@ -62,6 +62,16 @@ abstract class Driver
         return false;
     }
 
+    /**
+     * Whether a write that fails leaves nothing behind (the store writes under a temporary
+     * name and renames). The syncer then does not "clean up" after a refused write - on a
+     * computer that would delete the person's own, newer file.
+     */
+    public function writesAtomically(): bool
+    {
+        return false;
+    }
+
     /** Whether the settings can carry a public base URL the adapter cannot work out itself. */
     public function needsPublicUrl(): bool
     {

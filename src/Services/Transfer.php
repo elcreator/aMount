@@ -47,6 +47,59 @@ final class Transfer
 
     private const RESERVED_NAMES = ['.htaccess', '.htpasswd', '.user.ini', 'web.config', 'php.ini', '.env', 'ng.inx', 'ht.access', 'caddyfile'];
 
+    /** destination(): check everything but an existing file - that is decided per file while the run works. */
+    public const LATER = 'later';
+
+    /** Windows device names: `CON`, `con.txt`, `LPT1.tar.gz` cannot be created there. */
+    private const WINDOWS_DEVICES = ['con', 'prn', 'aux', 'nul', 'com0', 'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8',
+        'com9', 'lpt0', 'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'];
+
+    /** Whose naming rules apply (a property so tests can play Windows on Linux). */
+    public static string $hostOs = PHP_OS_FAMILY;
+
+    /**
+     * Why this server's filesystem cannot hold `$name`, or null. Said out loud: a file that
+     * cannot be written is a failure with a reason, never a silent skip.
+     */
+    public static function nameProblem(string $name): ?string
+    {
+        if (strlen($name) > 255) {
+            return '"' . mb_substr($name, 0, 40) . '..." is longer than 255 bytes.';
+        }
+        if (self::$hostOs === 'Windows') {
+            if (preg_match('/[<>:"|?*\\x00-\\x1F]/', $name)) {
+                return '"' . $name . '" holds a character Windows does not allow (< > : " | ? * or a control character).';
+            }
+            if (preg_match('/[. ]$/', $name)) {
+                return '"' . $name . '" ends with a dot or a space, which Windows drops.';
+            }
+            $stem = strtolower(explode('.', rtrim($name, '. '))[0]);
+            if (in_array(trim($stem), self::WINDOWS_DEVICES, true)) {
+                return '"' . $name . '" is a name Windows reserves (CON, PRN, AUX, NUL, COM1-9, LPT1-9).';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * On a case-insensitive disk (Windows, macOS) `Photo.jpg` and `photo.jpg` are one file:
+     * the existing entry's real name when it differs from `$name` only in case, else null.
+     */
+    public static function caseTwin(string $directory, string $name): ?string
+    {
+        if (!in_array(self::$hostOs, ['Windows', 'Darwin'], true) || !is_dir($directory)) {
+            return null;
+        }
+        foreach (scandir($directory) ?: [] as $entry) {
+            if ($entry !== $name && strcasecmp($entry, $name) === 0) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
     private ?Closure $report;
 
     public function __construct(
@@ -94,12 +147,16 @@ final class Transfer
      *
      * @throws RuntimeException with a plain-English reason
      */
-    public static function destination(Scope $scope, FileEntry $entry, ?string $to, bool $overwrite): string
+    public static function destination(Scope $scope, FileEntry $entry, ?string $to, bool|string $overwrite): string
     {
         $name = basename(str_replace('\\', '/', (string) $entry->local_path));
 
         if ($name === '' || $name === '.' || $name === '..') {
             throw new RuntimeException('The stored file has no usable name.');
+        }
+
+        if (($problem = static::nameProblem($name)) !== null) {
+            throw new TransferConflict('name_not_allowed', $problem);
         }
 
         if (static::isExecutableName($name) && !static::mayEditCode($scope->principal())) {
@@ -109,6 +166,9 @@ final class Transfer
         if ($to === null || trim($to) === '') {
             $folder = dirname(str_replace('\\', '/', (string) $entry->local_path));
             $folder = $folder === '.' ? '' : $folder;
+        } elseif (str_contains(str_replace('\\', '/', (string) $entry->local_path), '/') && str_starts_with(str_replace('\\', '/', (string) $entry->local_path), rtrim((string) Paths::clean($to), '/') . '/')) {
+            // A recursive fetch: the entry already names its subfolder under the destination.
+            $folder = dirname(str_replace('\\', '/', (string) $entry->local_path));
         } else {
             $folder = Paths::clean($to);
 
@@ -141,7 +201,32 @@ final class Transfer
             throw new RuntimeException('"' . $name . '" cannot be written: a link or folder is in the way.');
         }
 
-        if (file_exists($target) && (!$overwrite || !$scope->canModify($target))) {
+        if (($twin = static::caseTwin($directory, $name)) !== null) {
+            throw new TransferConflict('case_collision', '"' . $twin . '" is already in "' . $folder . '", and this server\'s disk treats it as the same name as "'
+                . $name . '" - nothing was replaced.');
+        }
+
+        if (!file_exists($target) || $overwrite === self::LATER) {
+            return $target;
+        }
+
+        if ($overwrite === 'skip') {
+            throw new TransferConflict('conflict', '"' . $name . '" is already in "' . $folder . '" - kept (replacing files is not allowed for this transfer).');
+        }
+
+        if ($overwrite === 'newer') {
+            $here = (int) @filemtime($target);
+            if ((int) $entry->mtime <= $here) {
+                throw new TransferConflict('conflict', '"' . $name . '" in "' . $folder . '" is newer here (or as new) - kept.');
+            }
+            if (!$scope->canModify($target)) {
+                throw new RuntimeException('"' . $name . '" already exists in "' . $folder . '" and you may not replace it.');
+            }
+
+            return $target;
+        }
+
+        if (!$overwrite || !$scope->canModify($target)) {
             throw new RuntimeException('"' . $name . '" already exists in "' . $folder . '"' . ($overwrite ? ' and you may not replace it.' : '.'));
         }
 
@@ -250,8 +335,9 @@ final class Transfer
         $ids = array_values(array_map('intval', (array) ($payload['entries'] ?? [])));
         $results = (array) ($payload['results'] ?? []);
         $to = isset($payload['to']) && $payload['to'] !== '' ? (string) $payload['to'] : null;
-        $overwrite = !empty($payload['overwrite']);
+        $overwrite = in_array($payload['on_conflict'] ?? null, ['skip', 'newer'], true) ? (string) $payload['on_conflict'] : !empty($payload['overwrite']);
         $deleteRemote = !empty($payload['delete_remote']);
+        $quota = isset($payload['quota']) ? (int) $payload['quota'] : null;
         $processed = 0;
 
         if (!Runs::advance($this->run, [
@@ -283,7 +369,9 @@ final class Transfer
                 $results[$id] = ['ok' => false, 'error' => 'The file is no longer known to aMount.'];
             } else {
                 try {
-                    $results[$id] = $this->restore($entry, $to, $overwrite, $deleteRemote);
+                    $results[$id] = $this->restore($entry, $to, $overwrite, $deleteRemote, $quota);
+                } catch (TransferConflict $e) {
+                    $results[$id] = ['ok' => false, 'skipped' => true, 'code' => $e->errorCode, 'error' => mb_substr($e->getMessage(), 0, 500)];
                 } catch (TransferAborted $e) {
                     return true;
                 } catch (Throwable $e) {
@@ -317,7 +405,11 @@ final class Transfer
 
         $done = (int) $this->run->files_done;
         $failed = (int) $this->run->files_failed;
-        $message = 'Downloaded ' . $done . ' file(s)' . ($failed > 0 ? '; ' . $failed . ' failed: ' . $this->firstError($results) : '.');
+        $skipped = count(array_filter($results, static fn ($r) => !empty($r['skipped'])));
+        $message = 'Downloaded ' . $done . ' file(s)'
+            . ($skipped > 0 ? '; ' . $skipped . ' not written (conflict or name): ' . $this->firstError(array_filter($results, static fn ($r) => !empty($r['skipped']))) : '')
+            . ($failed - $skipped > 0 ? '; ' . ($failed - $skipped) . ' failed: ' . $this->firstError(array_filter($results, static fn ($r) => empty($r['ok']) && empty($r['skipped']))) : '')
+            . '.';
 
         Runs::advance($this->run, [
             'status' => $failed > 0 && $done === 0 ? Run::FAILED : Run::DONE,
@@ -329,8 +421,11 @@ final class Transfer
         return true;
     }
 
+    /** Bytes in the destination folder, measured once per run and kept up to date. */
+    private ?int $folderUsed = null;
+
     /** @return array{ok: bool, error?: string, warning?: string} */
-    private function restore(FileEntry $entry, ?string $to, bool $overwrite, bool $deleteRemote): array
+    private function restore(FileEntry $entry, ?string $to, bool|string $overwrite, bool $deleteRemote, ?int $quota = null): array
     {
         if ($entry->status !== FileEntry::UPLOADED) {
             return ['ok' => false, 'error' => 'The file is not stored remotely.'];
@@ -338,6 +433,18 @@ final class Transfer
 
         // Re-validated here, as the user stands now, not as they stood when they asked.
         $target = static::destination($this->scope, $entry, $to, $overwrite);
+
+        // The site folder's quota (always set for files from a computer): checked before a
+        // byte moves, and the computer is told it, so both sides know each other's limits.
+        if ($quota !== null && $to !== null) {
+            $this->folderUsed ??= static::folderBytes(Paths::absolute((string) Paths::clean($to)));
+            $replacing = is_file($target) ? (int) filesize($target) : 0;
+            if ($this->folderUsed - $replacing + (int) $entry->size > $quota) {
+                throw new TransferConflict('quota_exceeded', '"' . basename($target) . '" would take "' . $to . '" over its quota of '
+                    . round($quota / 1048576) . ' MB (' . round($this->folderUsed / 1048576) . ' MB used).');
+            }
+            \Elcreator\aMount\Computer\Client::$destination = ['folder' => (string) $to, 'quota' => $quota, 'used' => $this->folderUsed];
+        }
 
         $lastBeat = microtime(true);
         $read = 0;
@@ -356,6 +463,11 @@ final class Transfer
 
             return Runs::advance($this->run, ['bytes_done' => $base + $read, 'current_file' => mb_substr($file, 0, 1000), 'heartbeat_at' => now()]);
         });
+
+        if ($quota !== null && $this->folderUsed !== null) {
+            $this->folderUsed += (int) $entry->size;
+        }
+        \Elcreator\aMount\Computer\Client::$destination = null;
 
         $result = ['ok' => true];
         $update = [];
@@ -380,6 +492,23 @@ final class Transfer
         }
 
         return $result;
+    }
+
+    /** Total size of the files under a folder (the quota's "used"). */
+    public static function folderBytes(string $absolute): int
+    {
+        if (!is_dir($absolute)) {
+            return 0;
+        }
+        $total = 0;
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($absolute, \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $file) {
+            if ($file->isFile() && !$file->isLink()) {
+                $total += $file->getSize();
+            }
+        }
+
+        return $total;
     }
 
     private function firstError(array $results): string
