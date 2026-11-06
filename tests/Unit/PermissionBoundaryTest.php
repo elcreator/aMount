@@ -124,6 +124,22 @@ it('skips links', function () {
         ->and($scope->denyDirectory(Paths::absolute('assets/files/linked')))->toBe('link');
 });
 
+it('refuses a file reached through a linked folder, as it refuses the folder', function () {
+    amountSite(['assets/files/a.txt' => 'a', 'elsewhere/x.txt' => 'x']);
+
+    if (!amountLink(amountSitePath('elsewhere'), amountSitePath('assets/files/linked'))) {
+        $this->markTestSkipped('This system cannot create links.');
+    }
+
+    $scope = Scope::for(Principal::forUser(amountAdmin()));
+
+    expect($scope->denyFile(Paths::absolute('assets/files/linked/x.txt')))->toBe('link')
+        ->and($scope->denyFile(Paths::absolute('assets/files/linked/not/there/yet.txt')))->toBe('link')
+        ->and($scope->canModify(Paths::absolute('assets/files/linked/x.txt')))->toBeFalse()
+        ->and($scope->denyFile(Paths::absolute('assets/files/a.txt')))->toBeNull()
+        ->and($scope->denyFile(Paths::absolute('assets/files/not/there/yet.txt')))->toBeNull();
+});
+
 it('confines a user whose root is narrower than the site', function () {
     amountTree();
     $scope = Scope::for(Principal::forUser(amountUser(7, ['amount', 'file_manager'], [], null, 'assets/files')));
