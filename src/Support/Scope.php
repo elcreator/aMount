@@ -101,28 +101,17 @@ final class Scope
             return $reason;
         }
 
-        // A link anywhere on the way is refused as a whole. realpath() resolves
-        // links and Windows junctions alike; the expected spelling is the
-        // canonical root plus whatever follows it.
-        $real = realpath($absolute);
-
-        if ($real === false) {
+        if (realpath($absolute) === false) {
             return 'outside_root';
         }
 
-        $real = rtrim(str_replace('\\', '/', $real), '/');
-        $root = rtrim($this->principal->root, '/');
-        $rootReal = rtrim(str_replace('\\', '/', realpath($root) ?: $root), '/');
-        $expected = $rootReal . substr($absolute, strlen($root));
-
-        if (!$this->same($real, $expected)) {
-            return 'link';
-        }
-
-        return null;
+        return $this->passesLink($absolute) ? 'link' : null;
     }
 
-    /** Same question for one file; the folder it sits in has been checked by the walker. */
+    /**
+     * Same question for one file, which may not exist yet. Not every caller comes
+     * from the walker, so the folders on the way are checked here too.
+     */
     public function denyFile(string $absolute): ?string
     {
         $absolute = $this->normalize($absolute);
@@ -131,7 +120,38 @@ final class Scope
             return 'link';
         }
 
-        return $this->denyCommon($absolute);
+        if (($reason = $this->denyCommon($absolute)) !== null) {
+            return $reason;
+        }
+
+        $root = rtrim($this->principal->root, '/');
+        $folder = dirname($absolute);
+
+        while ($folder !== $root && $folder !== dirname($folder) && realpath($folder) === false) {
+            $folder = dirname($folder);
+        }
+
+        return $this->passesLink($folder) ? 'link' : null;
+    }
+
+    /**
+     * Whether a link stands anywhere on the way to an existing folder. realpath()
+     * resolves links and Windows junctions alike; the expected spelling is the
+     * canonical root plus whatever follows it.
+     */
+    private function passesLink(string $absolute): bool
+    {
+        $real = realpath($absolute);
+
+        if ($real === false) {
+            return false;
+        }
+
+        $real = rtrim(str_replace('\\', '/', $real), '/');
+        $root = rtrim($this->principal->root, '/');
+        $rootReal = rtrim(str_replace('\\', '/', realpath($root) ?: $root), '/');
+
+        return !$this->same($real, $rootReal . substr($absolute, strlen($root)));
     }
 
     public function allowsDirectory(string $absolute): bool
