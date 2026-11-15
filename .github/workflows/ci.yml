@@ -133,3 +133,32 @@ jobs:
 
       - name: Smoke test
         run: ci/smoke.sh "$RUNNER_TEMP/evo"
+
+  # ci/plugin.env decides which CMS this plugin is built against; a reusable
+  # workflow cannot source it, so this job hands its ref over as an output.
+  settings:
+    name: Pipeline settings
+    runs-on: ubuntu-latest
+    outputs:
+      evo-ref: ${{ steps.cfg.outputs.evo-ref }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: cfg
+        run: . ci/plugin.env && echo "evo-ref=$EVO_REF" >> "$GITHUB_OUTPUT"
+
+  # The agent-facing half: eMCP's reusable Extra workflow installs this commit
+  # and eMCP into a fresh CMS and fails unless every aMount tool is listed.
+  # TODO(evo-mcp#8): point at evolution-cms/evo-mcp@main once it is merged.
+  emcp:
+    name: eMCP integration
+    needs: settings
+    uses: elcreator/evo-mcp/.github/workflows/extra-integration.yml@add-ci-list-tools
+    with:
+      evo_ref: ${{ needs.settings.outputs.evo-ref }}
+      emcp_ref: refs/pull/8/head
+      php_version: '8.4'
+      server_handle: content
+      expected_tools: >-
+        amount.mounts amount.browse amount.rules amount.files amount.runs
+        amount.status amount.measure amount.deliver amount.fetch amount.recall
+        amount.cancel amount.delete_remote amount.computers
