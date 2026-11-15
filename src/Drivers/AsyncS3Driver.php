@@ -55,6 +55,11 @@ final class AsyncS3Driver extends Driver
         ];
     }
 
+    public function destinations(array $config): array
+    {
+        return ['endpoint' => trim((string) ($config['endpoint'] ?? ''))];
+    }
+
     protected function adapter(array $config, array $options): FilesystemAdapter
     {
         $arguments = ['region' => trim((string) ($config['region'] ?? '')) ?: 'us-east-1'];

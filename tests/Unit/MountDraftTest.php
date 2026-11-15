@@ -25,7 +25,7 @@ function amountDraftRoot(): string
 }
 
 it('tests an unsaved mount without storing anything', function () {
-    amountUser(2);
+    amountAdmin(2);
     $root = amountDraftRoot();
 
     $result = (new Mounts(Actor::for(2)))->testDraft(['driver' => 'local', 'config' => ['root' => $root]]);
@@ -44,7 +44,7 @@ it('tests an unsaved mount without storing anything', function () {
 });
 
 it('reports a failing connection as a verdict, not an error', function () {
-    amountUser(2);
+    amountAdmin(2);
 
     $result = (new Mounts(Actor::for(2)))->testDraft(['driver' => 'local', 'config' => ['root' => amountDraftRoot() . '/missing/../../nope-' . uniqid()]]);
 
@@ -67,7 +67,7 @@ it('applies the driver validation and the access rules of a real save', function
 });
 
 it('keeps stored secrets for an edited mount and refuses somebody else\'s', function () {
-    amountUser(2);
+    amountAdmin(2);
     amountUser(3);
     $mount = amountMount(2);
 
@@ -80,7 +80,7 @@ it('keeps stored secrets for an edited mount and refuses somebody else\'s', func
 });
 
 it('answers the stateless test over HTTP with a result and no mount', function () {
-    amountUser(2);
+    amountAdmin(2);
     AmountTestCore::$loginUserId = 2;
 
     $request = Request::create('/x', 'POST', ['driver' => 'local', 'config' => ['root' => amountDraftRoot()]]);

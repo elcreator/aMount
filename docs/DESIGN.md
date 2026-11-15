@@ -40,6 +40,13 @@ is gone); **private** ones are downloadable only by managers who may see the ori
 8. A file's identity is `path_hash = sha1(site path)`; never index long paths. Site paths are validated by `Paths::clean()`.
 9. A step must be safe to run twice (a worker can die anywhere): upload to the final key is idempotent; local deletion
    happens only after the remote size is verified AND the local file is unchanged (size+mtime) since it was read.
+10. Where a mount connects is an administrator's decision. `Driver::touchesHost()` drivers (local, zip) are
+   administrator-only; `Driver::destinations()` must resolve to public addresses only (`Support\Destination`, every
+   record) unless an administrator configured the mount. Enforced in `Mounts` on save/test (readable 403/422) and in
+   `Driver::filesystem()` on every connection via `Mount::trusted()`: config mounts, or `options.configured_by`
+   (else owner, else creator) being an administrator *now*. Untrusted connections use the checked address
+   (`_pinned`: cURL `RESOLVE` for WebDAV/S3, the address itself for FTP/SFTP) and WebDAV follows no redirect.
+   SFTP refuses to connect without a pinned host key (`host_fingerprint`, several allowed for rotation).
 
 ## Already written (do not rewrite; extend only if a contract below says so)
 

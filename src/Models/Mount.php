@@ -5,6 +5,7 @@ namespace Elcreator\aMount\Models;
 use Elcreator\aMount\Drivers\Drivers;
 use Elcreator\aMount\Support\Config;
 use Elcreator\aMount\Support\Crypt;
+use Elcreator\aMount\Support\Principal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -122,7 +123,37 @@ class Mount extends Model
     public function filesystem(): Filesystem
     {
         // The owner travels along for drivers that resolve a key per manager (ComputerDriver).
-        return Drivers::get($this->driver)->filesystem($this->credentials(), $this->options() + ['_owner_id' => $this->owner_id]);
+        return Drivers::get($this->driver)->filesystem($this->credentials(), $this->options() + [
+            '_owner_id' => $this->owner_id,
+            '_trusted' => $this->trusted(),
+        ]);
+    }
+
+    /**
+     * Who last set the connection settings. Rows saved before this was recorded
+     * fall back to the owner, then to the creator.
+     */
+    public function configuredBy(): ?int
+    {
+        $id = (int) ($this->option('configured_by') ?? $this->owner_id ?? $this->created_by ?? 0);
+
+        return $id > 0 ? $id : null;
+    }
+
+    /**
+     * Whether the settings were chosen by someone allowed to point a mount at
+     * this machine or an internal network: the site configuration, or an
+     * account that is an administrator *now* (a demoted one loses it on the next run).
+     */
+    public function trusted(): bool
+    {
+        if ($this->isFromConfig()) {
+            return true;
+        }
+
+        $by = $this->configuredBy();
+
+        return $by !== null && Principal::forUser($by)->isAdministrator();
     }
 
     public function rules()

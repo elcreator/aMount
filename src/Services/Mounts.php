@@ -9,6 +9,7 @@ use Elcreator\aMount\Models\Mount;
 use Elcreator\aMount\Models\Rule;
 use Elcreator\aMount\Models\Run;
 use Elcreator\aMount\Support\Config;
+use Elcreator\aMount\Support\Destination;
 use Elcreator\aMount\Support\Paths;
 use Elcreator\aMount\Support\Principal;
 use Illuminate\Database\Eloquent\Collection;
@@ -179,6 +180,7 @@ final class Mounts
 
         $name = $this->name($in['name'] ?? '');
         $config = $this->config($driver, (array) ($in['config'] ?? []), []);
+        $this->guard($driver, $config);
 
         $mount = new Mount();
         $mount->uuid = Mount::newUuid();
@@ -187,7 +189,7 @@ final class Mounts
         $mount->owner_id = $personal ? $this->actor->userId() : null;
         $mount->created_by = $this->actor->userId();
         $mount->status = Mount::STATUS_UNTESTED;
-        $mount->options_json = $this->options((array) ($in['options'] ?? []), []);
+        $mount->options_json = ['configured_by' => $this->actor->userId()] + $this->options((array) ($in['options'] ?? []), []);
         $mount->setCredentials($config);
         $mount->save();
 
@@ -216,14 +218,17 @@ final class Mounts
             $mount->name = $this->name($in['name']);
         }
 
-        if (array_key_exists('config', $in)) {
-            $mount->setCredentials($this->config($driver, (array) $in['config'], $mount->credentials()));
-            $mount->status = Mount::STATUS_UNTESTED;
-            $mount->last_error = null;
-        }
-
         if (array_key_exists('options', $in)) {
             $mount->options_json = $this->options((array) $in['options'], $mount->options());
+        }
+
+        if (array_key_exists('config', $in)) {
+            $config = $this->config($driver, (array) $in['config'], $mount->credentials());
+            $this->guard($driver, $config);
+            $mount->setCredentials($config);
+            $mount->options_json = ['configured_by' => $this->actor->userId()] + $mount->options();
+            $mount->status = Mount::STATUS_UNTESTED;
+            $mount->last_error = null;
         }
 
         $mount->save();
@@ -352,12 +357,13 @@ final class Mounts
 
         $driver = $existing ? Drivers::get($existing->driver) : $this->driverFor((string) ($in['driver'] ?? ''));
         $config = $this->config($driver, (array) ($in['config'] ?? []), $existing ? $existing->credentials() : []);
+        $this->guard($driver, $config);
 
         // A throwaway model: it only carries the settings to the driver and is never saved.
         $draft = new Mount();
         $draft->driver = $driver->id();
         $draft->owner_id = $personal ? $this->actor->userId() : null;
-        $draft->options_json = $this->options((array) ($in['options'] ?? []), $existing ? $existing->options() : []);
+        $draft->options_json = ['configured_by' => $this->actor->userId()] + $this->options((array) ($in['options'] ?? []), $existing ? $existing->options() : []);
         $draft->setCredentials($config);
 
         return $this->probe($draft);
@@ -508,7 +514,7 @@ final class Mounts
         }
 
         $options = $mount->options();
-        unset($options['config_key']);
+        unset($options['config_key'], $options['configured_by']);
 
         return [
             'uuid' => $mount->uuid,
@@ -702,10 +708,46 @@ final class Mounts
         return $config;
     }
 
+    /**
+     * What only an administrator may configure, refused with a readable answer
+     * when the settings are saved or tested. The worker enforces the same
+     * through {@see Mount::trusted()}, so this is not the only line.
+     *
+     * @throws AmountException
+     */
+    private function guard(Driver $driver, array $config): void
+    {
+        if ($this->actor->principal()->isAdministrator()) {
+            return;
+        }
+
+        if ($driver->touchesHost()) {
+            throw new AmountException('admin_only', AmountException::text('aMount::global.error_driver_admin_only', ['driver' => $driver->label()]), 403);
+        }
+
+        $errors = [];
+
+        foreach ($driver->destinations($config + $driver->defaults()) as $field => $value) {
+            if (trim($value) === '') {
+                continue;
+            }
+
+            $found = Destination::inspect($value);
+
+            if ($found['status'] !== Destination::OK) {
+                $errors[$field] = AmountException::text('aMount::global.error_destination_' . $found['status'], ['host' => $found['host'] ?? $value]);
+            }
+        }
+
+        if ($errors !== []) {
+            throw AmountException::fields($errors);
+        }
+    }
+
     /** @return array<string, mixed> */
     private function options(array $in, array $stored): array
     {
-        $options = array_intersect_key($stored, array_flip(['source', 'config_key']));
+        $options = array_intersect_key($stored, array_flip(['source', 'config_key', 'configured_by']));
         $errors = [];
 
         $url = trim((string) ($in['public_url'] ?? ($stored['public_url'] ?? '')));
