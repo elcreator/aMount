@@ -2,6 +2,7 @@
 
 namespace Elcreator\aMount\Console;
 
+use Elcreator\aMount\Drivers\Drivers;
 use Elcreator\aMount\Models\FileEntry;
 use Elcreator\aMount\Models\Mount;
 use Elcreator\aMount\Models\Rule;
@@ -80,6 +81,15 @@ class DemoCommand extends Command
 
         if ($env['ENDPOINT'] === '' || $env['BUCKET'] === '' || $env['KEY'] === '' || $env['SECRET'] === '') {
             $this->warn('Skipping --s3: set AMOUNT_DEMO_S3_ENDPOINT, _BUCKET, _KEY and _SECRET (the demo Docker stack does).');
+
+            return [];
+        }
+
+        // The S3 package is optional (composer "suggest").
+        $driver = Drivers::get('s3');
+
+        if (!$driver->available()) {
+            $this->warn('Skipping --s3: the S3 driver is not installed. Install it with: ' . $driver->installCommand());
 
             return [];
         }

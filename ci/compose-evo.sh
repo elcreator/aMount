@@ -179,7 +179,8 @@ step "core/custom/composer.json"
 # CMS plus this one plugin; a package that happened to be installed in the
 # core this was built from has no business travelling into a published image.
 custom="$target/core/custom/composer.json"
-PLUGIN_PACKAGE="$PLUGIN_PACKAGE" PLUGIN_SLUG="$PLUGIN_SLUG" php "$here/lib/write-custom-composer.php" "$custom"
+PLUGIN_PACKAGE="$PLUGIN_PACKAGE" PLUGIN_SLUG="$PLUGIN_SLUG" PLUGIN_EXTRAS="${PLUGIN_EXTRAS:-}" \
+    php "$here/lib/write-custom-composer.php" "$custom"
 cat "$custom"
 
 step "composer update $PLUGIN_PACKAGE (partial)"
@@ -200,7 +201,10 @@ step "composer update $PLUGIN_PACKAGE (partial)"
 # being maintained and wrong for a build that has to be reproducible.
 lock_before=$(mktemp)
 cp "$target/core/composer.lock" "$lock_before"
-( cd "$target/core" && composer update "${composer_args[@]}" --with-dependencies "$PLUGIN_PACKAGE" )
+# The optional packages from plugin.env (PLUGIN_EXTRAS) are named too, so they
+# may be installed; word splitting is intended.
+# shellcheck disable=SC2086
+( cd "$target/core" && composer update "${composer_args[@]}" --with-dependencies "$PLUGIN_PACKAGE" ${PLUGIN_EXTRAS:-} )
 
 step "What the plugin changed in core/composer.lock"
 php "$here/lib/lock-delta.php" "$lock_before" "$target/core/composer.lock"

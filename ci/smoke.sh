@@ -26,6 +26,14 @@ fail() { echo "smoke.sh: $*" >&2; exit 1; }
 step "Package is installed"
 [ -d "$evo_dir/core/vendor/$PLUGIN_PACKAGE" ] || fail "$PLUGIN_PACKAGE missing from core/vendor"
 
+if [ -n "${PLUGIN_EXTRAS:-}" ]; then
+    step "Optional packages are installed"
+    for extra in $PLUGIN_EXTRAS; do
+        [ -d "$evo_dir/core/vendor/$extra" ] || fail "$extra (PLUGIN_EXTRAS) missing from core/vendor"
+        echo "ok   $extra"
+    done
+fi
+
 step "Service provider is discovered"
 # `artisan package:discover` runs on every composer dump-autoload and drops one
 # file per discovered provider into core/custom/config/app/providers/. That
