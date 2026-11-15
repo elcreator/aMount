@@ -41,6 +41,11 @@ ci/ .github/                 builds a full CMS with the plugin inside (Docker), 
   first, and only then asks whether the path exists.
 - **A stranger's personal mount is "not found", never "forbidden"** (and not even an administrator opens it);
   `Mounts::find()` enforces it, controllers must always go through it.
+- **Storage drivers are optional packages**: `require` holds only `league/flysystem` and
+  `league/flysystem-local`; every other driver's package is in `suggest`, with its minimum version
+  in `conflict` (SFTP `<3.36` would break host-key pinning). Builds (tests, demo, zip, images)
+  add `PLUGIN_EXTRAS` from `ci/plugin.env`, so tests may use the S3/SFTP/WebDAV classes; code may
+  not assume them outside their driver (`Driver::available()`). `PackagesTest` keeps this in sync.
 - **Where a mount connects** (DESIGN rule 10): `Driver::filesystem()` is fail-closed - without
   `_trusted` (set by `Mount::filesystem()` from `Mount::trusted()`) local/zip refuse and every
   `destinations()` entry must resolve public. A driver gaining a host/URL field must list it in

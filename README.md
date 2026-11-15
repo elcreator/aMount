@@ -25,8 +25,22 @@ php artisan package:installrequire elcreator/amount "*"
 php artisan migrate
 ```
 
-The module appears in the manager menu as **aMount**. Run `php artisan amount:drivers` to see which drivers are
-installed; install a missing one with the command it prints. `php artisan amount:demo --run` seeds a demo on a local
+The module appears in the manager menu as **aMount**. Only the local folder driver comes with it; every storage
+driver is an optional package, so a site carries just the ones it uses (the AWS SDK alone is about 77 MB). Run
+`php artisan amount:drivers` to see which drivers are installed; install a missing one with the command it prints,
+e.g. for S3, SFTP and WebDAV (the trailing `0` records a package without running Composer, so it runs once):
+
+```sh
+php artisan package:installrequire league/flysystem-aws-s3-v3 "*" 0
+php artisan package:installrequire league/flysystem-sftp-v3 "*" 0
+php artisan package:installrequire league/flysystem-webdav "*"
+```
+
+> **Upgrading from a version that required S3, SFTP and WebDAV:** `composer update` removes those packages if nothing
+> else needs them, and mounts using them then report the install command instead of connecting. Install the drivers
+> you use as above before or after updating.
+
+The ready-made zip and Docker images include the S3, SFTP and WebDAV drivers. `php artisan amount:demo --run` seeds a demo on a local
 disk (no account needed).
 
 ## Permissions
