@@ -81,6 +81,11 @@ final class ComputerDriver extends Driver
         ];
     }
 
+    public function destinations(array $config): array
+    {
+        return ['gateway' => trim((string) ($config['gateway'] ?? ''))];
+    }
+
     protected function adapter(array $config, array $options): FilesystemAdapter
     {
         $owner = isset($options['_owner_id']) ? (int) $options['_owner_id'] : null;

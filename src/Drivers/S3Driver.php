@@ -89,6 +89,24 @@ final class S3Driver extends Driver
         return $errors;
     }
 
+    /**
+     * A virtual-hosted request goes to `<bucket>.<endpoint host>`, a name of its
+     * own (a wildcard record may point it anywhere), so it is checked too.
+     */
+    public function destinations(array $config): array
+    {
+        $endpoint = trim((string) ($config['endpoint'] ?? ''));
+        $destinations = ['endpoint' => $endpoint];
+        $host = $endpoint === '' ? null : parse_url(str_contains($endpoint, '://') ? $endpoint : 'https://' . $endpoint, PHP_URL_HOST);
+        $bucket = trim((string) ($config['bucket'] ?? ''));
+
+        if (is_string($host) && $host !== '' && $bucket !== '' && empty($config['path_style']) && filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) === false) {
+            $destinations['bucket'] = $bucket . '.' . $host;
+        }
+
+        return $destinations;
+    }
+
     protected function adapter(array $config, array $options): FilesystemAdapter
     {
         $arguments = [
@@ -106,6 +124,7 @@ final class S3Driver extends Driver
 
         if (trim((string) ($config['endpoint'] ?? '')) !== '') {
             $arguments['endpoint'] = trim((string) $config['endpoint']);
+            $arguments['http']['curl'] = self::pinnedCurl($arguments['endpoint'], $options['_pinned'] ?? null);
             $arguments['use_path_style_endpoint'] = (bool) ($config['path_style'] ?? false);
             // Newer SDKs add CRC checksums that several S3-compatible servers
             // do not understand (R2, MinIO, B2 reject them).
@@ -114,5 +133,30 @@ final class S3Driver extends Driver
         }
 
         return new AwsS3V3Adapter(new S3Client($arguments), trim((string) $config['bucket']), self::prefix($config));
+    }
+
+    /**
+     * cURL options that make the SDK connect to the checked addresses of a
+     * custom endpoint (and its bucket host) instead of resolving the names
+     * again; empty when nothing was pinned.
+     *
+     * @param array<string, string>|null $pinned host => address
+     * @return array<int, mixed>
+     */
+    public static function pinnedCurl(string $endpoint, ?array $pinned): array
+    {
+        if (!$pinned || !defined('CURLOPT_RESOLVE')) {
+            return [];
+        }
+
+        $parts = parse_url(str_contains($endpoint, '://') ? $endpoint : 'https://' . $endpoint);
+        $port = (int) ($parts['port'] ?? (strtolower((string) ($parts['scheme'] ?? 'https')) === 'http' ? 80 : 443));
+        $resolve = [];
+
+        foreach ($pinned as $host => $address) {
+            $resolve[] = sprintf('%s:%d:%s', $host, $port, str_contains($address, ':') ? '[' . $address . ']' : $address);
+        }
+
+        return [CURLOPT_RESOLVE => $resolve];
     }
 }

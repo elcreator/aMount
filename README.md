@@ -143,6 +143,13 @@ access, and **this site's code**.
 - **Site mounts** are usable by managers with `amount` (optionally only members of chosen user groups). A manager
   without `amount_manage` is confined to `u<their id>/` on a site mount, so one manager's uploads cannot land in or
   overwrite another's.
+- **Only an administrator can point a mount at this server or the internal network.** The local folder and ZIP drivers
+  read and write wherever PHP can, so they are offered to administrators only. Everyone else may connect a WebDAV URL,
+  S3 endpoint, FTP/SFTP host or computer gateway only when it resolves to public addresses; the address that was checked
+  is the one connected to, and WebDAV redirects are not followed. This is checked when the mount is saved or tested and
+  again on every connection, for whoever last changed its connection settings. Mounts from configuration are trusted.
+- **SFTP needs a pinned host key** (`ssh-keyscan HOST | ssh-keygen -lf -` prints it as `SHA256:...`); a connection to
+  a server presenting another key is refused. Several keys may be pinned, so a key can be rotated without downtime.
 - **Downloads back are cautious.** The destination must be a folder the user can write to; nothing is overwritten unless
   asked and allowed; executable and server-configuration file names are refused unless the user may edit code; files are
   written to `<name>.amount-part`, size-checked, then renamed. A database dump downloaded back is restored with the CMS's

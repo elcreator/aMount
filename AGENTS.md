@@ -41,6 +41,11 @@ ci/ .github/                 builds a full CMS with the plugin inside (Docker), 
   first, and only then asks whether the path exists.
 - **A stranger's personal mount is "not found", never "forbidden"** (and not even an administrator opens it);
   `Mounts::find()` enforces it, controllers must always go through it.
+- **Where a mount connects** (DESIGN rule 10): `Driver::filesystem()` is fail-closed - without
+  `_trusted` (set by `Mount::filesystem()` from `Mount::trusted()`) local/zip refuse and every
+  `destinations()` entry must resolve public. A driver gaining a host/URL field must list it in
+  `destinations()`. Tests: `amountMount()` records an administrator as `configured_by`, and
+  `Destination::$resolver` is faked (`amountFakeResolver()`), so no test does DNS.
 - **Secrets**: `Mounts::present()` masks them; `update()` keeps the stored value for a blank field. Controllers whitelist
   input keys and reject non-scalar values where scalars belong (`Controller::text()/flag()/listOf()/ids()`).
 - **Task type is registered in `register()`**, not `boot()`: the consumer (`system:task-worker`) is a CLI process with

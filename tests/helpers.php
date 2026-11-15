@@ -6,6 +6,7 @@ use Elcreator\aMount\Models\Mount;
 use Elcreator\aMount\Models\Rule;
 use Elcreator\aMount\Models\Run;
 use Elcreator\aMount\Services\Syncer;
+use Elcreator\aMount\Support\Destination;
 use Illuminate\Container\Container;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Eloquent\Model;
@@ -187,11 +188,45 @@ function amountReset(): void
 
     AmountTestCore::reset();
     Drivers::reset();
+    amountFakeResolver();
 
     amountRemoveTree(AMOUNT_TEST_ROOT . '/assets');
     amountRemoveTree(AMOUNT_TEST_REMOTE);
     amountEnsureDir(AMOUNT_TEST_ROOT . '/assets/files');
     amountEnsureDir(AMOUNT_TEST_REMOTE);
+}
+
+/**
+ * No DNS in tests. `*.lan` and `localhost` are internal, `mixed.test` hides one
+ * private record among public ones, `*.invalid` does not resolve, anything
+ * else resolves to a public address.
+ */
+function amountFakeResolver(): void
+{
+    Destination::$resolver = static function (string $host): array {
+        return match (true) {
+            $host === 'localhost' => ['127.0.0.1', '::1'],
+            str_ends_with($host, '.lan') => ['10.0.0.5'],
+            $host === 'mixed.test' => ['93.184.215.14', '192.168.1.10'],
+            str_ends_with($host, '.invalid') => [],
+            default => ['93.184.215.14'],
+        };
+    };
+}
+
+/**
+ * The administrator recorded as having configured the fixture mounts, so the
+ * local driver keeps serving as the byte store of non-administrators' tests.
+ */
+function amountFixtureAdmin(): int
+{
+    $id = 9990;
+
+    if (!Capsule::table('users')->where('id', $id)->exists()) {
+        amountAdmin($id);
+    }
+
+    return $id;
 }
 
 function amountEnsureDir(string $path): void
@@ -320,7 +355,7 @@ function amountMount(?int $ownerId = null, array $options = [], string $name = '
         'name' => $name,
         'driver' => 'local',
         'owner_id' => $ownerId,
-        'options_json' => $options,
+        'options_json' => $options + ['configured_by' => amountFixtureAdmin()],
         'status' => Mount::STATUS_OK,
     ]);
     $mount->setCredentials(['root' => $root]);
@@ -419,3 +454,5 @@ function amountEntry(Rule $rule, string $sitePath): ?FileEntry
 // ---------------------------------------------------------------------------
 
 amountBoot();
+
+amountFakeResolver();

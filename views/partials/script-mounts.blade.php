@@ -309,7 +309,8 @@
         add(box.foot, btn(t('ui_cancel'), { onclick: function () { box.close(); } }));
         add(box.body, h('p', { 'class': 'am-help', text: t('ui_driver_pick') }));
         GROUP_ORDER.forEach(function (group) {
-            var drivers = S.drivers.filter(function (d) { return (d.group || 'other') === group; });
+            // Folder and ZIP drivers reach this server's disk: offered to administrators only (the API refuses the rest).
+            var drivers = S.drivers.filter(function (d) { return (d.group || 'other') === group && (!d.admin_only || S.flags.is_admin); });
             if (!drivers.length) { return; }
             add(box.body, h('section', { 'class': 'am-driver-group' }, [
                 h('h3', { text: groupLabel(group) }),

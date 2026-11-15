@@ -62,10 +62,16 @@ final class FtpDriver extends Driver
         ];
     }
 
+    public function destinations(array $config): array
+    {
+        return ['host' => trim((string) ($config['host'] ?? ''))];
+    }
+
     protected function adapter(array $config, array $options): FilesystemAdapter
     {
         return new FtpAdapter(FtpConnectionOptions::fromArray([
-            'host' => trim((string) $config['host']),
+            // The checked address when the settings were not chosen by an administrator.
+            'host' => $options['_pinned'][strtolower(trim((string) $config['host'], '[]'))] ?? trim((string) $config['host']),
             'root' => '/' . trim((string) ($config['root'] ?? '/'), '/'),
             'username' => trim((string) $config['username']),
             'password' => (string) $config['password'],

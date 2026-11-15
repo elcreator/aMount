@@ -2,6 +2,8 @@
 
 namespace Elcreator\aMount\Drivers;
 
+use Elcreator\aMount\Support\Destination;
+use Elcreator\aMount\Support\Lang;
 use League\Flysystem\Config as FlysystemConfig;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemAdapter;
@@ -72,6 +74,29 @@ abstract class Driver
         return false;
     }
 
+    /**
+     * Whether the settings name a path on this machine (a folder, a ZIP file).
+     * Such a mount reads and writes anything the PHP process can reach, outside
+     * the file manager's root, so only an administrator may configure one.
+     */
+    public function touchesHost(): bool
+    {
+        return false;
+    }
+
+    /**
+     * The network destinations the adapter connects to, field => URL or host,
+     * as configured. A mount not configured by an administrator may reach only
+     * public addresses ({@see Destination}).
+     *
+     * @param array<string, mixed> $config
+     * @return array<string, string>
+     */
+    public function destinations(array $config): array
+    {
+        return [];
+    }
+
     /** Whether the settings can carry a public base URL the adapter cannot work out itself. */
     public function needsPublicUrl(): bool
     {
@@ -116,7 +141,14 @@ abstract class Driver
         return $defaults;
     }
 
-    /** @throws RuntimeException */
+    /**
+     * `$options['_trusted']` says an administrator (or the site configuration)
+     * chose these settings. Without it the host-touching drivers refuse and
+     * every destination must resolve to public addresses; the checked
+     * addresses reach the adapter as `$options['_pinned']` (host => address).
+     *
+     * @throws RuntimeException
+     */
     public function filesystem(array $config, array $options = []): Filesystem
     {
         if (!$this->available()) {
@@ -135,8 +167,43 @@ abstract class Driver
             throw new RuntimeException($this->label() . ': missing ' . implode(', ', array_keys($errors)) . '.');
         }
 
+        if (empty($options['_trusted'])) {
+            if ($this->touchesHost()) {
+                throw new RuntimeException(Lang::get('aMount::global.error_driver_admin_only', ['driver' => $this->label()]));
+            }
+
+            $options['_pinned'] = $this->pinDestinations($config);
+        }
+
         // Visibility is passed per write (see writeConfig()), not as a default.
         return new Filesystem($this->adapter($config, $options));
+    }
+
+    /**
+     * Resolve and check every destination, host => the address to connect to.
+     *
+     * @return array<string, string>
+     * @throws RuntimeException naming the refused host
+     */
+    public function pinDestinations(array $config): array
+    {
+        $pinned = [];
+
+        foreach ($this->destinations($config) as $value) {
+            if (trim($value) === '') {
+                continue;
+            }
+
+            $found = Destination::inspect($value);
+
+            if ($found['status'] !== Destination::OK) {
+                throw new RuntimeException(Lang::get('aMount::global.error_destination_' . $found['status'], ['host' => $found['host'] ?? $value]));
+            }
+
+            $pinned[(string) $found['host']] = (string) $found['address'];
+        }
+
+        return $pinned;
     }
 
     /** Flysystem write config for one file. */
@@ -166,6 +233,7 @@ abstract class Driver
             'defaults' => $this->defaults(),
             'supports_visibility' => $this->supportsVisibility(),
             'needs_public_url' => $this->needsPublicUrl(),
+            'admin_only' => $this->touchesHost(),
         ];
     }
 

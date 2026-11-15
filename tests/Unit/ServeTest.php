@@ -112,7 +112,7 @@ it('redirects to the public URL of the mount and proxies otherwise', function ()
 
     // And so does the mount's own setting.
     AmountTestCore::config()->set('cms.settings.aMount.serve.mode', 'auto');
-    $mount->update(['options_json' => ['public_url' => 'https://cdn.example', 'serve' => 'proxy']]);
+    $mount->update(['options_json' => ['public_url' => 'https://cdn.example', 'serve' => 'proxy'] + $mount->options()]);
     expect(Serve::publicResponse($entry->fresh()->load('mount')))->toBeInstanceOf(StreamedResponse::class);
 });
 

@@ -48,6 +48,11 @@ final class ZipDriver extends Driver
         return true;
     }
 
+    public function touchesHost(): bool
+    {
+        return true;
+    }
+
     public function fields(): array
     {
         return [

@@ -96,7 +96,7 @@ it('reports the install command of a driver whose package is missing', function 
 it('builds the local driver and round-trips a file', function () {
     $root = AMOUNT_TEST_REMOTE . '/driver-local';
     amountEnsureDir($root);
-    $fs = Drivers::get('local')->filesystem(['root' => $root]);
+    $fs = Drivers::get('local')->filesystem(['root' => $root], ['_trusted' => true]);
 
     $fs->write('a/b.txt', 'hello');
 
@@ -127,9 +127,9 @@ it('constructs the network drivers without touching the network', function (stri
 })->with([
     's3' => ['s3', ['bucket' => 'b', 'region' => 'eu-central-1', 'key' => 'k', 'secret' => 's']],
     's3 compatible' => ['s3', ['bucket' => 'b', 'endpoint' => 'http://minio:9000', 'path_style' => true, 'key' => 'k', 'secret' => 's']],
-    'sftp' => ['sftp', ['host' => 'example.invalid', 'username' => 'u', 'password' => 'p', 'root' => '/backups']],
-    'ftp' => ['ftp', ['host' => 'example.invalid', 'username' => 'u', 'password' => 'p', 'root' => '/']],
-    'webdav' => ['webdav', ['base_uri' => 'https://example.invalid/dav/', 'username' => 'u', 'password' => 'p']],
+    'sftp' => ['sftp', ['host' => 'sftp.example', 'username' => 'u', 'password' => 'p', 'root' => '/backups', 'host_fingerprint' => 'SHA256:nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8']],
+    'ftp' => ['ftp', ['host' => 'ftp.example', 'username' => 'u', 'password' => 'p', 'root' => '/']],
+    'webdav' => ['webdav', ['base_uri' => 'https://dav.example/dav/', 'username' => 'u', 'password' => 'p']],
 ]);
 
 it('passes visibility to the adapter only when the mount opts in', function () {
