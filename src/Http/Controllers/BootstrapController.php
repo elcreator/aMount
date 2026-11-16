@@ -5,6 +5,7 @@ namespace Elcreator\aMount\Http\Controllers;
 use Elcreator\aMount\Drivers\Drivers;
 use Elcreator\aMount\Models\Run;
 use Elcreator\aMount\Queue\Dispatcher;
+use Elcreator\aMount\Services\DriverInstaller;
 use Elcreator\aMount\Services\Files;
 use Elcreator\aMount\Services\Mounts;
 use Elcreator\aMount\Services\Rules;
@@ -31,9 +32,11 @@ class BootstrapController extends Controller
             $rules = new Rules($actor);
             $manage = $actor->mayManage();
             $principal = $actor->principal();
+            $installer = new DriverInstaller($actor);
 
             return [
                 'drivers' => array_values(array_map([$this, 'describeDriver'], Drivers::all())),
+                'driver_installs' => $installer->pending(),
                 'mounts' => $mounts->visible()->map(fn ($m) => $mounts->present($m))->all(),
                 'foreign_mounts' => $mounts->foreign(),
                 'rules' => $rules->list()->map(fn ($r) => $rules->present($r))->all(),
@@ -44,6 +47,7 @@ class BootstrapController extends Controller
                 'flags' => [
                     'may_manage' => $manage,
                     'is_admin' => $principal->isAdministrator(),
+                    'may_install_drivers' => $installer->allowed(),
                     'use_udperms' => $principal->udperms,
                     'serve_enabled' => Config::serveEnabled(),
                 ],

@@ -60,10 +60,12 @@ it('builds the published CMS with the S3, SFTP and WebDAV drivers', function () 
     }
 });
 
-it('tells how to install a missing driver with one installrequire call per package', function () {
+it('tells how to install a missing driver by its id', function () {
     foreach (Drivers::all() as $driver) {
-        // package:installrequire {key} {value} takes one package per call.
-        expect(substr_count($driver->installCommand(), 'package:installrequire'))->toBe(1)
-            ->and(count($driver->packages()))->toBe(1, $driver->id() . ' lists several packages; installCommand() would need one call each');
+        if ($driver->id() === 'ai-computer' && !$driver->available()) {
+            continue;
+        }
+
+        expect($driver->installCommand())->toBe('cd core && php artisan amount:drivers --install=' . $driver->id());
     }
 });

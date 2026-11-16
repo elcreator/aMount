@@ -103,9 +103,9 @@ it('bootstraps the page with everything it needs and no secret', function () {
     [$status, $body] = amountAnswer($response);
 
     expect($status)->toBe(200)
-        ->and($body)->toHaveKeys(['drivers', 'mounts', 'rules', 'presets', 'queue', 'server', 'flags', 'groups', 'limits', 'csrf_token', 'runs'])
+        ->and($body)->toHaveKeys(['drivers', 'driver_installs', 'mounts', 'rules', 'presets', 'queue', 'server', 'flags', 'groups', 'limits', 'csrf_token', 'runs'])
         ->and($body['csrf_token'])->toBeString()
-        ->and($body['flags'])->toBe(['may_manage' => false, 'is_admin' => false, 'use_udperms' => true, 'serve_enabled' => true])
+        ->and($body['flags'])->toBe(['may_manage' => false, 'is_admin' => false, 'may_install_drivers' => false, 'use_udperms' => true, 'serve_enabled' => true])
         ->and($body['server'])->toBeNull()
         ->and($body['groups'])->toBe([])
         ->and($body['mounts'])->toHaveCount(1)

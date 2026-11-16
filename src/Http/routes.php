@@ -1,6 +1,8 @@
 <?php
 
 use Elcreator\aMount\Http\Controllers\BootstrapController;
+use Elcreator\aMount\Http\Controllers\ComputerController;
+use Elcreator\aMount\Http\Controllers\DriverController;
 use Elcreator\aMount\Http\Controllers\FileController;
 use Elcreator\aMount\Http\Controllers\LocalController;
 use Elcreator\aMount\Http\Controllers\MountController;
@@ -26,6 +28,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PageController::class, 'index'])->name('amount.index');
 Route::get('/bootstrap', [BootstrapController::class, 'show'])->name('amount.bootstrap');
+
+// Installing a missing driver's packages (administrators only), through the CMS task queue.
+Route::post('/drivers/install', [DriverController::class, 'install'])->name('amount.drivers.install');
+Route::get('/drivers/install/{id}', [DriverController::class, 'status'])->whereNumber('id')->name('amount.drivers.status');
 
 // Mounts: remote storage connections.
 Route::post('/mounts', [MountController::class, 'store'])->name('amount.mounts.store');

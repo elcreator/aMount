@@ -86,7 +86,7 @@ it('reports the install command of a driver whose package is missing', function 
     $missing = array_filter(Drivers::all(), fn (Driver $d) => !$d->available());
 
     foreach ($missing as $driver) {
-        expect($driver->installCommand())->toContain('package:installrequire')->toContain($driver->packages()[0]);
+        expect($driver->installCommand())->toBe('cd core && php artisan amount:drivers --install=' . $driver->id());
         expect(fn () => $driver->filesystem([]))->toThrow(RuntimeException::class, $driver->installCommand());
     }
 

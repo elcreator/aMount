@@ -327,13 +327,62 @@
                     } else {
                         add(card, [
                             h('span', { text: t('ui_driver_missing', { packages: (d.packages || []).join(', ') }) }),
-                            d.install ? commandLine(d.install) : null
+                            d.install ? commandLine(d.install) : null,
+                            S.flags.may_install_drivers ? installControl(d, box, onPick) : null
                         ]);
                     }
                     return card;
                 }))
             ]));
         });
+    }
+
+    /**
+     * Administrators install a missing driver from here: the CMS task worker runs
+     * Composer, the page follows the task and offers the driver once it loads.
+     */
+    function installControl(d, box, onPick) {
+        var msg = h('p', { 'class': 'am-msg', role: 'status' });
+        var button = btn(t('ui_driver_install'), {
+            icon: 'download', small: true, aria: t('ui_driver_install_aria', { name: d.label }),
+            onclick: function () {
+                button.disabled = true;
+                setMsg(msg, t('ui_driver_install_queued'));
+                api('POST', '/drivers/install', { driver: d.id }).then(function (r) {
+                    if (!r || r.ok === false) { button.disabled = false; setMsg(msg, errMsg(r), 'error'); return; }
+                    follow(r.task, (r.warnings || []).map(function (w) { return w.message; }).join(' '));
+                });
+            }
+        });
+
+        function follow(task, note) {
+            if (!box.el.parentNode) { return; }
+            if (task.finished) {
+                if (task.status === 'succeeded' || task.installed) {
+                    setMsg(msg, t('ui_driver_installed', { name: d.label }), 'ok');
+                    announce(t('ui_driver_installed', { name: d.label }));
+                    loadBoot(true).then(function () { if (box.el.parentNode) { pickDriver(box, onPick); } });
+                } else {
+                    button.disabled = false;
+                    setMsg(msg, t('ui_driver_install_failed', { message: task.message || '' }), 'error');
+                }
+                return;
+            }
+            button.disabled = true;
+            var text = task.status === 'queued' ? t('ui_driver_install_queued') : t('ui_driver_installing', { progress: task.progress || 0, message: task.message || '' });
+            setMsg(msg, note ? text + ' ' + note : text);
+            window.setTimeout(function () {
+                api('GET', '/drivers/install/' + task.id).then(function (r) {
+                    if (!r || r.ok === false) { button.disabled = false; setMsg(msg, errMsg(r), 'error'); return; }
+                    follow(r.task, '');
+                });
+            }, 3000);
+        }
+
+        var pending = (S.driverInstalls || {})[d.id];
+        if (pending) { window.setTimeout(function () { follow(pending, ''); }, 0); }
+
+        return h('div', { 'class': 'am-driver-install' }, [h('span', { 'class': 'am-help', text: t('ui_driver_install_help') }), button, msg]);
     }
 
     function showWhen(fieldDef, values) {
