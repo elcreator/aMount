@@ -130,6 +130,18 @@ access, and **this site's code**.
   page was opened at); `amount.fetch`/`deliver` take `site` and refuse a domain this
   installation does not serve.
 
+## AI agents (MCP)
+
+With [eMCP](https://github.com/evolution-cms/evo-mcp) installed, agents get `amount.*` tools on
+eMCP's `content` server, acting as the manager whose token they hold. The `amount` skill in
+`skills/amount/` teaches them the safe order (resolve the mount, transfer, poll, confirm before
+deleting); install it as a Claude Code plugin from the eMCP marketplace:
+
+```bash
+claude plugin marketplace add evolution-cms/evo-mcp
+claude plugin install amount@evolution-cms
+```
+
 ## Security model, in plain words
 
 - **A manager can only offload what they can see in the file manager.** Every folder and file is checked against that
