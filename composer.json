@@ -8,14 +8,15 @@
     "php": "^8.3",
     "evolution-cms/evolution": "^3.5.2",
     "league/flysystem": "^3.10",
-    "league/flysystem-aws-s3-v3": "^3.10",
-    "league/flysystem-sftp-v3": "^3.36",
-    "league/flysystem-webdav": "^3.6"
+    "league/flysystem-local": "^3.10"
   },
   "require-dev": {
     "pestphp/pest": "^4.0"
   },
   "suggest": {
+    "league/flysystem-aws-s3-v3": "Amazon S3 and S3-compatible driver (MinIO, Cloudflare R2, Backblaze B2, Wasabi, DigitalOcean Spaces ...)",
+    "league/flysystem-sftp-v3": "SFTP / SSH driver",
+    "league/flysystem-webdav": "WebDAV driver (Nextcloud, ownCloud, Synology ...)",
     "league/flysystem-ftp": "FTP/FTPS driver (needs ext-ftp, which many PHP builds omit, so it is not a hard requirement)",
     "league/flysystem-async-aws-s3": "AsyncAws S3 driver (lighter alternative to the AWS SDK)",
     "league/flysystem-google-cloud-storage": "Google Cloud Storage driver",
@@ -30,6 +31,11 @@
     "overtrue/flysystem-cos": "Tencent Cloud COS driver",
     "overtrue/flysystem-qiniu": "Qiniu Kodo driver",
     "seiger/stask": "Alternative queue manager: aMount runs its uploads as an sTask worker when it is installed"
+  },
+  "conflict": {
+    "league/flysystem-aws-s3-v3": "<3.10",
+    "league/flysystem-sftp-v3": "<3.36",
+    "league/flysystem-webdav": "<3.6"
   },
   "autoload": {
     "psr-4": {

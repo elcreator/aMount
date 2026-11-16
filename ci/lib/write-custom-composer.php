@@ -12,12 +12,16 @@
  * else they had installed there is exactly what must not travel into a
  * published zip or image.
  *
- * Usage: PLUGIN_PACKAGE=... PLUGIN_SLUG=... php write-custom-composer.php <path>
+ * PLUGIN_EXTRAS (optional, space-separated package names) are required at
+ * any version: the plugin's own "conflict" section sets their minimums.
+ *
+ * Usage: PLUGIN_PACKAGE=... PLUGIN_SLUG=... [PLUGIN_EXTRAS=...] php write-custom-composer.php <path>
  */
 
 $custom = $argv[1] ?? '';
 $package = getenv('PLUGIN_PACKAGE') ?: '';
 $slug = getenv('PLUGIN_SLUG') ?: '';
+$extras = preg_split('/\s+/', trim((string) getenv('PLUGIN_EXTRAS')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
 if ($custom === '' || $package === '' || $slug === '') {
     fwrite(STDERR, "usage: PLUGIN_PACKAGE=... PLUGIN_SLUG=... php write-custom-composer.php <path>\n");
@@ -44,7 +48,7 @@ $data = [
             'options' => ['symlink' => false],
         ],
     ],
-    'require' => [$package => '@dev'],
+    'require' => [$package => '@dev'] + array_fill_keys($extras, '*'),
     'autoload' => ['psr-4' => ['EvolutionCMS\\Custom\\' => 'src/']],
 ];
 

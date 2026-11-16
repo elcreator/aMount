@@ -3,6 +3,7 @@
 namespace Elcreator\aMount;
 
 use Elcreator\aMount\Console\DemoCommand;
+use Elcreator\aMount\Console\DriverInstallHandler;
 use Elcreator\aMount\Console\DriversCommand;
 use Elcreator\aMount\Console\ServerCommand;
 use Elcreator\aMount\Console\SyncHandler;
@@ -10,9 +11,11 @@ use Elcreator\aMount\Console\TickCommand;
 use Elcreator\aMount\Listeners\Cleanup;
 use Elcreator\aMount\Listeners\NotFound;
 use Elcreator\aMount\Queue\STaskQueue;
+use Elcreator\aMount\Services\DriverInstaller;
 use Elcreator\aMount\Services\Mounts;
 use Elcreator\aMount\Support\Config;
 use EvolutionCMS\ServiceProvider;
+use EvolutionCMS\Services\SystemTasks\ConsoleInstallFlowService;
 use EvolutionCMS\Services\SystemTasks\SystemTaskRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Schema;
@@ -33,6 +36,7 @@ class aMountServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(dirname(__DIR__) . '/config/aMount.php', 'cms.settings.aMount');
 
         $this->registerTaskType();
+        $this->registerInstallTaskType();
     }
 
     public function boot(): void
@@ -94,6 +98,30 @@ class aMountServiceProvider extends ServiceProvider
             'parallelism' => max(1, (int) Config::limit('parallelism', 2)),
             'permissions' => ['amount'],
             'label' => 'aMount transfer',
+        ]);
+    }
+
+    /**
+     * Declare `amount.driver_install`: a missing driver's packages, installed by
+     * the CMS's console install flow from the manager (see {@see DriverInstaller}).
+     *
+     * `exclusive` like the core's own installs, so Composer never runs beside a
+     * site update or another install; the core's package permission and its
+     * super-administrator gate apply to whoever queues it.
+     */
+    protected function registerInstallTaskType(): void
+    {
+        if (!class_exists(SystemTaskRegistry::class) || !class_exists(ConsoleInstallFlowService::class)
+            || SystemTaskRegistry::has(DriverInstaller::TYPE)) {
+            return;
+        }
+
+        SystemTaskRegistry::register(DriverInstaller::TYPE, DriverInstallHandler::class, [
+            'mode' => SystemTaskRegistry::MODE_EXCLUSIVE,
+            'permissions' => [DriverInstaller::PERMISSION],
+            'super_admin' => true,
+            'creator' => [DriverInstaller::class, 'queue'],
+            'label' => 'aMount driver install',
         ]);
     }
 

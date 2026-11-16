@@ -25,8 +25,25 @@ php artisan package:installrequire elcreator/amount "*"
 php artisan migrate
 ```
 
-The module appears in the manager menu as **aMount**. Run `php artisan amount:drivers` to see which drivers are
-installed; install a missing one with the command it prints. `php artisan amount:demo --run` seeds a demo on a local
+The module appears in the manager menu as **aMount**. Only the local folder driver comes with it; every storage
+driver is an optional package, so a site carries just the ones it uses (the AWS SDK alone is about 77 MB). Run
+`php artisan amount:drivers` to see which drivers are installed, and install missing ones by id, e.g. S3, SFTP and
+WebDAV (each package goes through the CMS's `package:installrequire`, which undoes a failed install):
+
+```sh
+php artisan amount:drivers --install=s3,sftp,webdav
+```
+
+Administrators can also click **Install** next to a missing driver in the manager. The page doesn't run Composer
+itself: it queues a task for the CMS task worker (the same queue the Extras module installs through) and shows its
+progress. That needs a running `system:task-worker` (the CMS cron line starts it) and a `core/vendor` directory the
+worker can write to. Other managers see the command to pass on.
+
+> **Upgrading from a version that required S3, SFTP and WebDAV:** `composer update` removes those packages if nothing
+> else needs them, and mounts using them then report the install command instead of connecting. Install the drivers
+> you use as above before or after updating.
+
+The ready-made zip and Docker images include the S3, SFTP and WebDAV drivers. `php artisan amount:demo --run` seeds a demo on a local
 disk (no account needed).
 
 ## Permissions
@@ -160,6 +177,8 @@ claude plugin install amount@evolution-cms
   S3 endpoint, FTP/SFTP host or computer gateway only when it resolves to public addresses; the address that was checked
   is the one connected to, and WebDAV redirects are not followed. This is checked when the mount is saved or tested and
   again on every connection, for whoever last changed its connection settings. Mounts from configuration are trusted.
+- **Only an administrator can install a driver from the manager**, since that changes the site's code. Composer runs in
+  the CMS task worker, never in a web request, and only for the packages the chosen driver lists.
 - **SFTP needs a pinned host key** (`ssh-keyscan HOST | ssh-keygen -lf -` prints it as `SHA256:...`); a connection to
   a server presenting another key is refused. Several keys may be pinned, so a key can be rotated without downtime.
 - **Downloads back are cautious.** The destination must be a folder the user can write to; nothing is overwritten unless
