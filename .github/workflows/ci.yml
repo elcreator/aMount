@@ -148,14 +148,12 @@ jobs:
 
   # The agent-facing half: eMCP's reusable Extra workflow installs this commit
   # and eMCP into a fresh CMS and fails unless every aMount tool is listed.
-  # TODO(evo-mcp#8): point at evolution-cms/evo-mcp@main once it is merged.
   emcp:
     name: eMCP integration
     needs: settings
-    uses: elcreator/evo-mcp/.github/workflows/extra-integration.yml@add-ci-list-tools
+    uses: evolution-cms/evo-mcp/.github/workflows/extra-integration.yml@main
     with:
       evo_ref: ${{ needs.settings.outputs.evo-ref }}
-      emcp_ref: refs/pull/8/head
       php_version: '8.4'
       server_handle: content
       expected_tools: >-
