@@ -47,6 +47,11 @@ is gone); **private** ones are downloadable only by managers who may see the ori
    (else owner, else creator) being an administrator *now*. Untrusted connections use the checked address
    (`_pinned`: cURL `RESOLVE` for WebDAV/S3, the address itself for FTP/SFTP) and WebDAV follows no redirect.
    SFTP refuses to connect without a pinned host key (`host_fingerprint`, several allowed for rotation).
+11. Composer never runs in a web request. A missing driver is installed from the manager only by an administrator,
+   as an `amount.driver_install` system task (`Services\DriverInstaller`, `Console\DriverInstallHandler`): exclusive,
+   `system_tasks.manage_packages` + super administrator, queued through the core's
+   `SystemTaskService::createTaskFromStoreRequest()` (its lock and scheduler checks) and run by `system:task-worker`
+   with the core's `ConsoleInstallFlowService`. Requests name a driver; the packages always come from the driver.
 
 ## Already written (do not rewrite; extend only if a contract below says so)
 
@@ -207,7 +212,7 @@ heartbeat for too long is healed to `error`, the page polls).
   Private files (backups) are never served by the web server; they are denied by the existing rules and downloaded through the
   authenticated manager endpoint.
 - `Console\ServerCommand` (`amount:server {server?} {--write} {--probe}`), `Console\DriversCommand` (`amount:drivers`: table of
-  drivers, installed or not, with install command), `Console\DemoCommand` (`amount:demo`: seeds a local-driver demo mount "Demo cloud",
+  drivers, installed or not, with install command; `--install=<ids>` runs `package:installrequire` once per missing package), `Console\DemoCommand` (`amount:demo`: seeds a local-driver demo mount "Demo cloud",
   sample files under `assets/amount-demo/`, one public rule, one backup-like private rule, optionally runs them synchronously
   for demo purposes — must be idempotent).
 - `Listeners\Cleanup` — remove a deleted user's personal mounts/rules/index rows; remove a deleted user group from

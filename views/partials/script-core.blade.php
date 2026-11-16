@@ -657,6 +657,7 @@
 
     function applyBoot(r) {
         S.drivers = r.drivers || [];
+        S.driverInstalls = r.driver_installs || {};
         S.mounts = r.mounts || [];
         S.rules = r.rules || [];
         S.presets = r.presets || [];

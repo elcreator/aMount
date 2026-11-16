@@ -245,6 +245,7 @@
     .am-driver b { font-size: 0.9rem; }
     .am-driver span { color: var(--am-muted); font-size: 0.78rem; }
     .am-driver .am-cmd { margin-top: 0.3rem; }
+    .am-driver-install { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; margin-top: 0.4rem; }
 
     /* Code block */
     .am-code { position: relative; }

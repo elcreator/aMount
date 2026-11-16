@@ -22,7 +22,7 @@ src/Http/routes.php          the route contract (relative to the module group; `
 src/Http/Controllers/        thin: request -> one service call -> JSON. Base Controller: respond()/fail()/ok()/presentRun()
 src/Services/                Actor, Mounts, Rules, Files, Runs, Syncer, Transfer, Delivery, Serve, ServerConfig, AmountException
 src/Queue/                   Dispatcher, SystemQueue (CMS task queue), STaskQueue (sTask)
-src/Console/                 SyncHandler (task handler), TickCommand, ServerCommand, DriversCommand, DemoCommand
+src/Console/                 SyncHandler, DriverInstallHandler (task handlers), TickCommand, ServerCommand, DriversCommand, DemoCommand
 src/Workers/SyncWorker       sTask worker (file guarded: only loads when sTask exists)
 src/Listeners/               NotFound (OnPageNotFound), Cleanup (OnManagerDeleteUser)
 src/Drivers/                 one class per Flysystem adapter; Drivers::all()
@@ -46,6 +46,10 @@ ci/ .github/                 builds a full CMS with the plugin inside (Docker), 
   in `conflict` (SFTP `<3.36` would break host-key pinning). Builds (tests, demo, zip, images)
   add `PLUGIN_EXTRAS` from `ci/plugin.env`, so tests may use the S3/SFTP/WebDAV classes; code may
   not assume them outside their driver (`Driver::available()`). `PackagesTest` keeps this in sync.
+- **Installing a driver** (DESIGN rule 11): `amount:drivers --install=<ids>` from a shell; from the page, only an
+  administrator, through the CMS task queue (`DriverInstaller` queues `amount.driver_install` via the core's
+  `createTaskFromStoreRequest()`, `DriverInstallHandler` delegates to `ConsoleInstallFlowService`). Never run Composer
+  in a request, and never take a package name from a request: packages come from `Driver::packages()`.
 - **Where a mount connects** (DESIGN rule 10): `Driver::filesystem()` is fail-closed - without
   `_trusted` (set by `Mount::filesystem()` from `Mount::trusted()`) local/zip refuse and every
   `destinations()` entry must resolve public. A driver gaining a host/URL field must list it in
@@ -95,8 +99,8 @@ ci/ .github/                 builds a full CMS with the plugin inside (Docker), 
 
 `{ok:true, ...}` or `{ok:false, error, message[, errors, candidates]}` with the refusal's HTTP status
 (403 forbidden, 404 not found, 409 ambiguous/refused, 422 invalid with `errors` field => message, 502 store failure).
-`GET /bootstrap` returns `drivers, mounts, foreign_mounts, rules, presets, runs, queue, server (administrators only, else
-null), flags{may_manage,is_admin,use_udperms,serve_enabled}, user_id, groups (administrators only), limits, csrf_token`.
+`GET /bootstrap` returns `drivers, driver_installs (unfinished installs by driver id, administrators only), mounts, foreign_mounts, rules, presets, runs, queue, server (administrators only, else
+null), flags{may_manage,is_admin,may_install_drivers,use_udperms,serve_enabled}, user_id, groups (administrators only), limits, csrf_token`.
 Runs are presented by `Controller::presentRun()`.
 
 ## Tests

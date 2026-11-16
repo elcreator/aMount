@@ -2,6 +2,7 @@
 
 namespace Elcreator\aMount\Drivers;
 
+use Composer\InstalledVersions;
 use Elcreator\aMount\Support\Destination;
 use Elcreator\aMount\Support\Lang;
 use League\Flysystem\Config as FlysystemConfig;
@@ -108,9 +109,25 @@ abstract class Driver
         return class_exists($this->probeClass()) || interface_exists($this->probeClass());
     }
 
+    /**
+     * The packages Composer has not installed. Can be empty while the driver is
+     * still unavailable: FTP also needs PHP's ftp extension, which no package brings.
+     *
+     * @return string[]
+     */
+    public function missingPackages(): array
+    {
+        if (!class_exists(InstalledVersions::class)) {
+            return $this->available() ? [] : $this->packages();
+        }
+
+        return array_values(array_filter($this->packages(), static fn (string $package): bool => !InstalledVersions::isInstalled($package)));
+    }
+
+    /** The command for a shell; {@see \Elcreator\aMount\Console\DriversCommand} runs `package:installrequire` per package. */
     public function installCommand(): string
     {
-        return 'cd core && php artisan package:installrequire ' . implode(' ', array_map(static fn ($p) => $p . ' "*"', $this->packages()));
+        return 'cd core && php artisan amount:drivers --install=' . $this->id();
     }
 
     /** Settings errors, field => message key. Empty when usable. @return array<string, string> */
