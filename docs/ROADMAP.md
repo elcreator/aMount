@@ -1,8 +1,8 @@
 # aMount — later
 
-## "My computer" through the ai.artur.work mesh
+## "My computer" through LendSpare
 
-The gateway grew the capability this section waited for: shared folders on the owner's own
+LendSpare (lendspare.com, where ai.artur.work's mesh moved) grew the capability this section waited for: shared folders on the owner's own
 computers, sealed end to end. It is the `ai-computer` driver, a full Flysystem filesystem over the folders the person shares - see the
 README, "My computer". Left: resumable transfers of one huge file across sessions (a file is
 one session today; a broken one is sent again from the start).

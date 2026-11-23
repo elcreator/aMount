@@ -53,7 +53,7 @@ class Client
                 return $this->view = $c;
             }
         }
-        throw new ComputerException('computer_not_found', 'No computer called "' . $this->computer . '" in this ai.artur.work account (or this API key may not reach computers).');
+        throw new ComputerException('computer_not_found', 'No computer called "' . $this->computer . '" in this LendSpare account (or this API key may not reach computers).');
     }
 
     /** @param array<string, mixed> $c */

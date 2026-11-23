@@ -106,11 +106,11 @@ for the folders your public rules use; the *Probe* button checks that it works.
 `php artisan amount:server nginx --write` writes the file; `--probe` tests it. Serving can be switched off with
 `serve.enabled = false`; `serve.mode` chooses redirect, proxy or auto (redirect when the mount has a public URL).
 
-## My computer (ai.artur.work)
+## My computer (LendSpare)
 
-The driver **My computer (ai.artur.work)** (`ai-computer`) mounts the folders a person shares
-from their own computer - Windows, macOS or Linux, behind any NAT - with the ai.artur.work
-program (`mesh-daemon`). An agent can then say *"upload sqlbackups 2025/08 from my computer mypc
+The driver **My computer (LendSpare)** (`ai-computer`) mounts the folders a person shares
+from their own computer - Windows, macOS or Linux, behind any NAT - with the
+[LendSpare](https://lendspare.com) application (formerly ai.artur.work's `mesh-daemon`). An agent can then say *"upload sqlbackups 2025/08 from my computer mypc
 to backups"*: `amount.fetch` with `mount="mypc"`, `remote="sqlbackups/2025/08"`, `to="backups"`,
 `recursive=true` - a computer's name needs no prepared mount, the manager's own is made on first
 use. `amount.computers` lists the account's computers, their folders, quotas and this site's
@@ -119,9 +119,9 @@ access, and **this site's code**.
 - **The computer decides.** It shares only folders its person picked, and asks them to allow this
   site the first time (on the desktop and in its settings page) - they compare the code shown
   there with the one on the aMount page (*My computers*). Nothing on the site or on
-  ai.artur.work can grant access.
+  LendSpare can grant access.
 - **Sealed end to end** (X25519 + AES-256-GCM, `src/Computer/Seal.php`, the daemon's own test
-  vector in `tests/fixtures/`): ai.artur.work relays bytes it cannot read or forge. The
+  vector in `tests/fixtures/`): LendSpare relays bytes it cannot read or forge. The
   computer's key is pinned on first contact; a changed key is refused until an administrator
   confirms it (*Trust its new key*).
 - **Fastest path first**: straight to the computer on the same network (when its owner allows
@@ -138,9 +138,10 @@ access, and **this site's code**.
 - **Quotas, both sides**: the computer's folders have quotas (shown, checked before an upload);
   files from a computer fill a site folder only up to the mount's `site_quota_mb`, checked for
   the whole batch before anything moves.
-- **Key**: the mount's own, else the owner's (or the site's) aIMage key, else
-  `cms.settings.aMount.computers.api_key` / `AMOUNT_GATEWAY_KEY`. On ai.artur.work, allow
-  "Shared folders on your computers" for that key. Needs ext-sodium, or PHP 8.4's OpenSSL.
+- **Key**: a LendSpare key - the mount's own, else `cms.settings.aMount.computers.api_key` /
+  `AMOUNT_GATEWAY_KEY` (aIMage's ai.artur.work key does not reach computers any more). On
+  LendSpare, allow "Shared folders on your computers" for that key. Another LendSpare address
+  (a local one, for tests): `computers.url` / `AMOUNT_LENDSPARE_URL`. Needs ext-sodium, or PHP 8.4's OpenSSL.
 - **Which site**: `Computer\SiteAddress` knows the installation's domains (sMultisite rows,
   `EVO_SITE_HOSTNAMES`, a pinned `EVO_SITE_URL`) and its public address even in the CLI worker
   (`computers.public_url`, sMultisite's `server_protocol://domain`, or the address the aMount

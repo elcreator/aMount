@@ -2,22 +2,36 @@
 
 namespace Elcreator\aMount\Computer;
 
+use Elcreator\aMount\Support\Config;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\RequestOptions;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * The ai.artur.work side of a computer's shared folders: the account's computers, and the
- * sealed mailbox the gateway relays sessions through.
+ * The LendSpare (lendspare.com) side of a computer's shared folders: the account's computers, and
+ * the sealed mailbox it relays sessions through. Computers are connected to LendSpare with its
+ * desktop application; the shared folders moved there from ai.artur.work.
  * Everything sent through it is already sealed: this class moves opaque bytes.
  * One instance carries one API key. The key needs "Shared folders on your computers" switched
- * on for it on the ai.artur.work profile (read, or read and write).
+ * on for it on the LendSpare profile (read, or read and write).
  */
 class Gateway
 {
+    public const DEFAULT_URL = 'https://lendspare.com/api/v1';
+    /** Where the shared folders were before LendSpare: a saved mount naming it means the default. */
+    public const LEGACY_URL = 'https://ai.artur.work/api/v1';
+
     private HttpClient $http;
 
-    public function __construct(private readonly string $apiKey, private readonly string $baseUrl = 'https://ai.artur.work/api/v1', ?HttpClient $http = null)
+    /** The API address: `computers.url` (env AMOUNT_LENDSPARE_URL), else lendspare.com. */
+    public static function defaultUrl(): string
+    {
+        $configured = trim((string) (Config::get('computers.url') ?? getenv('AMOUNT_LENDSPARE_URL') ?: ''));
+
+        return $configured !== '' ? $configured : self::DEFAULT_URL;
+    }
+
+    public function __construct(private readonly string $apiKey, private readonly string $baseUrl = self::DEFAULT_URL, ?HttpClient $http = null)
     {
         $this->http = $http ?? new HttpClient(['http_errors' => false, 'timeout' => 40, 'connect_timeout' => 10]);
     }
@@ -110,7 +124,7 @@ class Gateway
         try {
             return $this->http->request($method, $this->baseUrl() . $path, $options);
         } catch (\GuzzleHttp\Exception\GuzzleException $e) {
-            throw new ComputerException('gateway_unreachable', 'ai.artur.work could not be reached: ' . $e->getMessage());
+            throw new ComputerException('gateway_unreachable', 'LendSpare could not be reached: ' . $e->getMessage());
         }
     }
 
@@ -123,6 +137,6 @@ class Gateway
         $data = json_decode((string) $response->getBody(), true);
         $error = is_array($data['error'] ?? null) ? $data['error'] : [];
         throw new ComputerException((string) ($error['code'] ?? ('http_' . $status)),
-            (string) ($error['message'] ?? ('ai.artur.work answered ' . $status . '.')), $status);
+            (string) ($error['message'] ?? ('LendSpare answered ' . $status . '.')), $status);
     }
 }

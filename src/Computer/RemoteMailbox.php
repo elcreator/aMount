@@ -8,7 +8,7 @@ use GuzzleHttp\RequestOptions;
 /**
  * A mailbox on the owner's own relay (`mesh-daemon --relay`): what a TURN server is to a
  * video call, for when neither this site nor the computer can reach the other and the bytes
- * should not pass through ai.artur.work. Same protocol as {@see LocalMailbox}, over HTTP; the
+ * should not pass through LendSpare. Same protocol as {@see LocalMailbox}, over HTTP; the
  * relay holds sealed chunks it cannot read.
  */
 final class RemoteMailbox implements Channel

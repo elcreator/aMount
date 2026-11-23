@@ -48,16 +48,18 @@ return [
 
     /*
      * "My computer" (the ai-computer driver: folders shared from the person's own computers
-     * through ai.artur.work).
+     * through LendSpare, lendspare.com).
      *   public_url  this site's address for a computer to connect to (so the bytes skip the
      *               relay); the CLI worker cannot see it otherwise. A string, or with
      *               sMultisite a map of site key => URL. Null: worked out (sMultisite, the
      *               address the aMount page was opened at, a pinned EVO_SITE_URL).
-     *   api_key     the ai.artur.work key used when a mount has none and aIMage has none.
+     *   api_key     the LendSpare key used when a mount has none.
+     *   url         LendSpare's API address; null = https://lendspare.com/api/v1.
      */
     'computers' => [
         'public_url' => env('AMOUNT_PUBLIC_URL'),
         'api_key' => env('AMOUNT_GATEWAY_KEY'),
+        'url' => env('AMOUNT_LENDSPARE_URL'),
     ],
 
     'server' => [
