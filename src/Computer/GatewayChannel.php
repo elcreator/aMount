@@ -2,7 +2,7 @@
 
 namespace Elcreator\aMount\Computer;
 
-/** A session relayed by ai.artur.work (always available: both sides only call out). */
+/** A session relayed by LendSpare (always available: both sides only call out). */
 final class GatewayChannel implements Channel
 {
     private string $rev = '';

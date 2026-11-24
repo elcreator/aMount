@@ -61,7 +61,7 @@ Route::post('/files/recall', [FileController::class, 'recall'])->name('amount.fi
 Route::post('/files/{id}/delete', [FileController::class, 'destroy'])->whereNumber('id')->name('amount.files.delete');
 Route::get('/files/{id}/download', [FileController::class, 'download'])->whereNumber('id')->name('amount.files.download');
 
-// The account's computers (ai.artur.work shared folders).
+// The account's computers (LendSpare shared folders).
 Route::get('/computers', [ComputerController::class, 'index'])->name('amount.computers.index');
 Route::post('/computers/mount', [ComputerController::class, 'mount'])->name('amount.computers.mount');
 Route::post('/computers/{id}/trust', [ComputerController::class, 'trust'])->whereNumber('id')->name('amount.computers.trust');

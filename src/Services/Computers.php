@@ -33,7 +33,7 @@ final class Computers
         $out = ['site' => ['code' => SiteIdentity::fingerprint(), 'name' => SiteAddress::label(), 'domains' => SiteAddress::domains(),
             'public_url' => SiteAddress::publicUrl()], 'computers' => []];
         if ($key === null) {
-            $out['error'] = 'No ai.artur.work API key: connect aIMage, give a computer mount its own key, or set cms.settings.aMount.computers.api_key.';
+            $out['error'] = 'No LendSpare API key: give a computer mount its own key, or set cms.settings.aMount.computers.api_key.';
 
             return $out;
         }
@@ -61,7 +61,9 @@ final class Computers
 
     private static function gateway(string $key): Gateway
     {
-        return ComputerDriver::$gatewayFactory !== null ? (ComputerDriver::$gatewayFactory)($key, 'https://ai.artur.work/api/v1') : new Gateway($key);
+        $url = Gateway::defaultUrl();
+
+        return ComputerDriver::$gatewayFactory !== null ? (ComputerDriver::$gatewayFactory)($key, $url) : new Gateway($key, $url);
     }
 
     /** The manager's mount for a computer, if they have one. */

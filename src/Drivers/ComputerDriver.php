@@ -11,9 +11,9 @@ use League\Flysystem\FilesystemAdapter;
 use RuntimeException;
 
 /**
- * "My computer": the folders a person shares from their own computer with the ai.artur.work
- * program (mesh-daemon) - Windows, macOS or Linux, behind any NAT
- * (ai.artur.work docs/features/29-computer-files.md).
+ * "My computer": the folders a person shares from their own computer with the LendSpare
+ * application - Windows, macOS or Linux, behind any NAT (lendspare.com; the shared folders moved
+ * there from ai.artur.work, whose docs/features/29-computer-files.md describes the protocol).
  *
  * Nothing on the computer is reachable but what its person shared, and only after they
  * approved this site (they compare this site's code, shown on the aMount page). Bytes are
@@ -21,9 +21,8 @@ use RuntimeException;
  * picked per transfer: straight to the computer on the same network, the computer calling
  * this site's own mailbox, the owner's own relay, or the gateway's relay.
  *
- * The API key: this mount's own, else the owner's (or the site's) aIMage key, else
- * `cms.settings.aMount.computers.api_key`. It needs "Shared folders on your computers"
- * switched on for it on the ai.artur.work profile.
+ * The API key (a LendSpare key): this mount's own, else `cms.settings.aMount.computers.api_key`.
+ * It needs "Shared folders on your computers" switched on for it on the LendSpare profile.
  */
 final class ComputerDriver extends Driver
 {
@@ -37,7 +36,7 @@ final class ComputerDriver extends Driver
 
     public function label(): string
     {
-        return 'My computer (ai.artur.work)';
+        return 'My computer (LendSpare)';
     }
 
     public function packages(): array
@@ -73,7 +72,7 @@ final class ComputerDriver extends Driver
             self::text('computer', true, ['help' => 'aMount::global.h_computer']),
             self::text('share', false, ['help' => 'aMount::global.h_computer_share']),
             self::secret('api_key', false, ['help' => 'aMount::global.h_computer_api_key']),
-            self::text('gateway', false, ['default' => 'https://ai.artur.work/api/v1']),
+            self::text('gateway', false, ['default' => Gateway::DEFAULT_URL]),
             self::toggle('direct', true, ['help' => 'aMount::global.h_computer_direct']),
             self::toggle('site_mailbox', true, ['help' => 'aMount::global.h_computer_site_mailbox']),
             self::text('relay_url', false, ['help' => 'aMount::global.h_computer_relay_url']),
@@ -91,9 +90,13 @@ final class ComputerDriver extends Driver
         $owner = isset($options['_owner_id']) ? (int) $options['_owner_id'] : null;
         $key = KeySource::resolve((string) ($config['api_key'] ?? ''), $owner);
         if ($key === null) {
-            throw new RuntimeException('No ai.artur.work API key: give this mount one, connect aIMage, or set cms.settings.aMount.computers.api_key.');
+            throw new RuntimeException('No LendSpare API key: give this mount one, or set cms.settings.aMount.computers.api_key.');
         }
-        $url = trim((string) ($config['gateway'] ?? '')) ?: 'https://ai.artur.work/api/v1';
+        $url = trim((string) ($config['gateway'] ?? ''));
+        // Mounts saved before the move carry the old default: the computers are on LendSpare now.
+        if ($url === '' || rtrim($url, '/') === Gateway::LEGACY_URL) {
+            $url = Gateway::defaultUrl();
+        }
         $gateway = self::$gatewayFactory !== null ? (self::$gatewayFactory)($key, $url) : new Gateway($key, $url);
         $client = new Client($gateway, trim((string) $config['computer']), [
             'relay_url' => trim((string) ($config['relay_url'] ?? '')) ?: null,

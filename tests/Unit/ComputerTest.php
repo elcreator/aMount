@@ -353,3 +353,30 @@ it('knows which domains this installation serves', function () {
         ->and(SiteAddress::find('other.com'))->toBeNull();
     putenv('EVO_SITE_HOSTNAMES');
 });
+it('reaches the computers on LendSpare, and a mount saved with the old ai.artur.work address too', function () {
+    expect(Gateway::defaultUrl())->toBe('https://lendspare.com/api/v1');
+    putenv('AMOUNT_LENDSPARE_URL=http://localhost:8090/api/v1');
+    expect(Gateway::defaultUrl())->toBe('http://localhost:8090/api/v1');
+    putenv('AMOUNT_LENDSPARE_URL');
+
+    $urls = [];
+    ComputerDriver::$gatewayFactory = static function (string $key, string $url) use (&$urls) {
+        $urls[] = $url;
+
+        return new FakeComputerGateway(AMOUNT_TEST_REMOTE);
+    };
+    putenv('AMOUNT_GATEWAY_KEY=test-key');
+    $adapter = new ReflectionMethod(ComputerDriver::class, 'adapter');
+    foreach (['https://ai.artur.work/api/v1', '', 'https://relay.example/api/v1'] as $gateway) {
+        $adapter->invoke(new ComputerDriver(), ['computer' => 'mypc', 'gateway' => $gateway], []);
+    }
+    expect($urls)->toBe(['https://lendspare.com/api/v1', 'https://lendspare.com/api/v1', 'https://relay.example/api/v1']);
+});
+
+it('uses a LendSpare key: the mount\'s own, else the configured one, never another service\'s', function () {
+    putenv('AMOUNT_GATEWAY_KEY');
+    expect(\Elcreator\aMount\Computer\KeySource::resolve(' own-key ', 7))->toBe('own-key')
+        ->and(\Elcreator\aMount\Computer\KeySource::resolve('', 7))->toBeNull();
+    putenv('AMOUNT_GATEWAY_KEY=site-key');
+    expect(\Elcreator\aMount\Computer\KeySource::resolve('', 7))->toBe('site-key');
+});
