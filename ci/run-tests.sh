@@ -40,10 +40,18 @@ case "$TEST_MODE" in
         fi
 
         evo_dir=$(cd "$evo_dir" && pwd)
-        pest="$evo_dir/core/vendor/pestphp/pest/bin/pest"
+        # Evolution 3.5.x keeps its test tools in the root composer.json (vendor/);
+        # older cores had them in core/composer.json (core/vendor/).
+        pest=
+        for candidate in "$evo_dir/vendor/pestphp/pest/bin/pest" "$evo_dir/core/vendor/pestphp/pest/bin/pest"; do
+            if [ -f "$candidate" ]; then
+                pest=$candidate
+                break
+            fi
+        done
 
-        if [ ! -f "$pest" ]; then
-            echo "run-tests.sh: no Pest in $evo_dir/core/vendor." >&2
+        if [ -z "$pest" ]; then
+            echo "run-tests.sh: no Pest in $evo_dir/vendor or $evo_dir/core/vendor." >&2
             echo "The core must be built with dev dependencies: compose-evo.sh --dev" >&2
             exit 1
         fi
@@ -52,7 +60,12 @@ case "$TEST_MODE" in
         # Run from the plugin so Pest picks up this repository's phpunit.xml and
         # its bootstrap, rather than the core's.
         cd "$plugin_dir"
-        EVO_CORE_PATH_TEST="$evo_dir/core" php "$pest" --no-coverage "$@"
+        # Pest resolves --test-directory against the root of the vendor tree it
+        # was installed into, not the working directory: name this plugin's
+        # tests relative to that root.
+        pest_root=$(cd "$(dirname "$pest")/../../../.." && pwd)
+        test_dir=$(realpath --relative-to="$pest_root" "$plugin_dir/tests")
+        EVO_CORE_PATH_TEST="$evo_dir/core" php "$pest" --no-coverage --test-directory="$test_dir" "$@"
         ;;
 
     own-vendor)
