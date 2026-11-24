@@ -49,18 +49,24 @@ if (!$dbs) {
 
 $pdo = new PDO('sqlite:' . $dbs[0], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
-// The table is prefixed (evo_migrations by default), so it is looked up rather
-// than named.
-$table = $pdo->query(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%migrations'"
-)->fetchColumn();
+// The tables are prefixed (evo_migrations by default), so they are looked up
+// rather than named. Evolution 3.5.x keeps two logs: the installer records what
+// it ran in <prefix>migrations_install, artisan in <prefix>migrations, and a
+// migration counts as run in either.
+$tables = $pdo->query(
+    "SELECT name FROM sqlite_master WHERE type = 'table'"
+    . " AND (name LIKE '%migrations' OR name LIKE '%migrations_install')"
+)->fetchAll(PDO::FETCH_COLUMN);
 
-if (!$table) {
+if (!$tables) {
     fwrite(STDERR, "check-migrations.php: no migrations table in {$dbs[0]}\n");
     exit(1);
 }
 
-$ran = $pdo->query('SELECT migration FROM "' . $table . '"')->fetchAll(PDO::FETCH_COLUMN);
+$ran = [];
+foreach ($tables as $table) {
+    $ran = array_merge($ran, $pdo->query('SELECT migration FROM "' . $table . '"')->fetchAll(PDO::FETCH_COLUMN));
+}
 $missing = array_diff($expected, $ran);
 
 foreach ($expected as $migration) {
