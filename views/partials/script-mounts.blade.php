@@ -210,7 +210,7 @@
     }
 
     // ------------------------------------------------------------------
-    // The account's computers (ai.artur.work shared folders)
+    // The account's computers (LendSpare shared folders)
     // ------------------------------------------------------------------
 
     function computersBox() {

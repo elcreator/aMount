@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * The account's computers on the aMount page (LendSpare's shared folders, ai.artur.work docs/features/29-computer-files.md):
+ * The account's computers on the aMount page (LendSpare's shared folders, lendspare.com docs/features/29-computer-files.md):
  * what they share, this site's code the person compares, a mount in one click, and confirming
  * a computer's new key after its program was reinstalled.
  */
