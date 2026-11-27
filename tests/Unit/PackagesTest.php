@@ -26,7 +26,7 @@ it('requires only what every installation uses', function () {
 it('offers every storage driver package as a suggestion, apart from the local one', function () {
     $composer = amountComposer();
     // What the required CMS brings itself (guzzle for the computer driver).
-    $core = json_decode((string) file_get_contents((getenv('EVO_CORE_PATH_TEST') ?: 'C:/projects/Opensource/evo/evolution/core') . '/composer.json'), true);
+    $core = json_decode((string) file_get_contents((getenv('EVO_CORE_PATH_TEST') ?: dirname(__DIR__, 3) . '/evolution/core') . '/composer.json'), true);
 
     foreach (Drivers::all() as $driver) {
         foreach ($driver->packages() as $package) {

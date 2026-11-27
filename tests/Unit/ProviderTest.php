@@ -136,7 +136,7 @@ it('schedules amount:tick every minute, once', function () {
 });
 
 it('uses a Font Awesome icon the manager ships', function () {
-    $css = 'C:/projects/Opensource/evo/evolution/manager/media/style/common/font-awesome/css/font-awesome.min.css';
+    $css = dirname(__DIR__, 3) . '/evolution/manager/media/style/common/font-awesome/css/font-awesome.min.css';
 
     if (!is_file($css)) {
         $this->markTestSkipped('The CMS checkout is not next to this package.');

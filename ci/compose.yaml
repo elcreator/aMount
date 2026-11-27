@@ -10,7 +10,7 @@
 # a sibling of this repository, which is the layout these plugins are developed
 # in; set it if yours differs:
 #
-#   EVO_SRC=/c/projects/Opensource/evolution docker compose -f ci/compose.yaml run --rm test
+#   EVO_SRC=/path/to/evolution docker compose -f ci/compose.yaml run --rm test
 #
 # EVO_REPO / EVO_REF are passed through as well, so the same commands can build
 # against a published branch or a fork of the CMS.

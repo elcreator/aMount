@@ -2,7 +2,9 @@
 
 Context file for AI coding agents. Package `elcreator/amount`, namespace `Elcreator\aMount\` -> `src/`, PHP 8.3+,
 an **Evolution CMS 3.5+** plugin (`evolutioncms-plugin`). `docs/DESIGN.md` is the authoritative contract (hard security
-rules, service APIs); `README.md` is the user-facing view. Read both before changing behaviour.
+rules, service APIs); `README.md` is the user-facing view. Read both before changing behaviour. `docs/` (DESIGN.md,
+ROADMAP.md) is the maintainer's working notes, kept outside git; when it is absent, the code, its docblocks and this
+file are what you have.
 
 ## What it is
 
