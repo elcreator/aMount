@@ -14,7 +14,7 @@
  * not integration tests against a running site.
  */
 
-$core = getenv('EVO_CORE_PATH_TEST') ?: 'C:/projects/Opensource/evo/evolution/core';
+$core = getenv('EVO_CORE_PATH_TEST') ?: dirname(__DIR__, 2) . '/evolution/core';
 $core = rtrim(str_replace('\\', '/', $core), '/');
 
 if (!is_file($core . '/vendor/autoload.php')) {
