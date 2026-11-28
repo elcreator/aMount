@@ -122,9 +122,10 @@ class Mount extends Model
     /** @throws RuntimeException when the driver's package is missing or the settings are unusable */
     public function filesystem(): Filesystem
     {
-        // The owner travels along for drivers that resolve a key per manager (ComputerDriver).
+        // Whose key a driver resolving one per manager uses (ComputerDriver): the owner's, or for a
+        // shared mount the manager who set it up.
         return Drivers::get($this->driver)->filesystem($this->credentials(), $this->options() + [
-            '_owner_id' => $this->owner_id,
+            '_owner_id' => $this->owner_id ?? $this->configuredBy(),
             '_trusted' => $this->trusted(),
         ]);
     }

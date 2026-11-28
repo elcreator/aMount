@@ -9,6 +9,7 @@ use Elcreator\aMount\Console\ServerCommand;
 use Elcreator\aMount\Console\SyncHandler;
 use Elcreator\aMount\Console\TickCommand;
 use Elcreator\aMount\Listeners\Cleanup;
+use Elcreator\aMount\Listeners\ConnectReturn;
 use Elcreator\aMount\Listeners\NotFound;
 use Elcreator\aMount\Queue\STaskQueue;
 use Elcreator\aMount\Services\DriverInstaller;
@@ -146,6 +147,9 @@ class aMountServiceProvider extends ServiceProvider
         if (Config::serveEnabled()) {
             $events->listen('evolution.OnPageNotFound', [NotFound::class, 'handle']);
         }
+
+        // The way back from LendSpare's consent page ("Connect LendSpare"), whatever serving is set to.
+        $events->listen('evolution.OnPageNotFound', [ConnectReturn::class, 'handle']);
 
         $events->listen('evolution.OnManagerDeleteUser', [Cleanup::class, 'user']);
     }

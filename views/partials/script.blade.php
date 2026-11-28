@@ -31,6 +31,7 @@
             if (!r || r.ok === false) { showPageError(errMsg(r)); return; }
             applyBoot(r);
             route();
+            backFromLendspare();
             // Anything already running (a scheduled run, another manager's) shows up and is followed.
             api('GET', '/runs').then(function (list) {
                 if (list && list.ok !== false) {
@@ -42,6 +43,29 @@
                 }
             });
         });
+    }
+
+    /**
+     * Back from "Connect LendSpare" (`?lendspare=connected|failed&message=...` on this page's own URL):
+     * say how it went, and after a connection open the computer form, which now lists the computers.
+     */
+    function backFromLendspare() {
+        var q = {};
+        String(location.search || '').replace(/^\?/, '').split('&').forEach(function (kv) {
+            if (!kv) { return; }
+            var p = kv.split('=');
+            q[decodeURIComponent(p[0])] = decodeURIComponent((p[1] || '').replace(/\+/g, ' '));
+        });
+        if (!q.lendspare) { return; }
+        if (window.history && history.replaceState) { history.replaceState(null, '', String(location.pathname || '') + String(location.hash || '')); }
+        var ok = q.lendspare === 'connected';
+        var el = clear($('am-page-error'));
+        add(el, h('div', { 'class': 'am-alert ' + (ok ? 'am-alert-ok' : 'am-alert-error'), role: ok ? 'status' : 'alert', text: q.message || '' }));
+        announce(q.message || '');
+        if (ok && S.drivers.some(function (d) { return d.id === 'ai-computer' && d.available !== false; })) {
+            navigate('mounts');
+            mountDialog(null, 'ai-computer');
+        }
     }
 
     start();

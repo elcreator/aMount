@@ -64,6 +64,11 @@ Route::get('/files/{id}/download', [FileController::class, 'download'])->whereNu
 // The account's computers (LendSpare shared folders).
 Route::get('/computers', [ComputerController::class, 'index'])->name('amount.computers.index');
 Route::post('/computers/mount', [ComputerController::class, 'mount'])->name('amount.computers.mount');
+// "Connect LendSpare": GET both ways, the browser leaves for LendSpare and comes back (through the
+// front-end relay, Computer\Connect::RELAY_PATH, since the manager refuses a foreign Referer).
+Route::get('/computers/connect', [ComputerController::class, 'connect'])->name('amount.computers.connect');
+Route::get('/computers/connect/callback', [ComputerController::class, 'callback'])->name('amount.computers.callback');
+Route::post('/computers/disconnect', [ComputerController::class, 'disconnect'])->name('amount.computers.disconnect');
 Route::post('/computers/{id}/trust', [ComputerController::class, 'trust'])->whereNumber('id')->name('amount.computers.trust');
 
 // Activity.

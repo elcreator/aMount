@@ -124,7 +124,8 @@
     // Mounts tab
     // ------------------------------------------------------------------
 
-    var GROUP_ORDER = ['object', 'cloud', 'server', 'other'];
+    // The person's own computers first: they need no storage account at all.
+    var GROUP_ORDER = ['computer', 'object', 'cloud', 'server', 'other'];
 
     function driverById(id) {
         for (var i = 0; i < S.drivers.length; i++) { if (S.drivers[i].id === id) { return S.drivers[i]; } }
@@ -213,6 +214,74 @@
     // The account's computers (LendSpare shared folders)
     // ------------------------------------------------------------------
 
+    /** "Connect LendSpare": leaves for LendSpare's consent page (the whole manager window) and comes back. */
+    function connectLink(label) {
+        return h('a', { 'class': 'am-btn am-btn-primary am-btn-small am-connect', href: BASE + '/computers/connect', target: '_top' }, [icon('plug'), h('span', { text: label || t('ui_computers_connect') })]);
+    }
+
+    function lendspareControls() {
+        var key = S.computers && S.computers.key;
+        if (!key) {
+            return h('div', { 'class': 'am-alert am-alert-info' }, [h('span', { text: t('ui_computers_connect_help') + ' ' }), connectLink()]);
+        }
+        if (key !== 'connected') { return null; }
+        return h('div', { 'class': 'am-card-actions' }, [
+            h('span', { 'class': 'am-help', text: t('ui_computers_connected_note') }),
+            connectLink(t('ui_computers_reconnect')),
+            btn(t('ui_computers_disconnect'), { small: true, onclick: function (b) {
+                b.disabled = true;
+                api('POST', '/computers/disconnect', {}).then(function () { loadBoot(); });
+            } })
+        ]);
+    }
+
+    /**
+     * The `computer` field: the account's computers to pick from instead of a name to type. Without a
+     * key yet it offers "Connect LendSpare"; a value the list does not have stays selectable.
+     */
+    function computerPicker(value, onPick) {
+        var select = h('select');
+        var wrap = h('div', { 'class': 'am-computer-picker' });
+        var note = h('p', { 'class': 'am-msg', role: 'status' });
+        add(wrap, [select, note]);
+        if (!(S.computers && S.computers.key)) {
+            select.disabled = true;
+            add(select, h('option', { value: '', text: t('ui_computers_pick_connect') }));
+            add(wrap, connectLink());
+            return { el: wrap, input: select };
+        }
+        add(select, h('option', { value: '', text: t('ui_computers_loading') }));
+        select.disabled = true;
+        api('GET', '/computers', null, { shares: '0' }).then(function (r) {
+            clear(select);
+            var failed = !r || r.ok === false || !!r.error;
+            var list = failed ? [] : (r.computers || []);
+            select.disabled = false;
+            add(select, h('option', { value: '', text: list.length ? t('ui_computers_pick') : '-' }));
+            if (failed) { setMsg(note, r && r.error ? r.error : errMsg(r), 'error'); }
+            else if (!list.length) { setMsg(note, t('ui_computers_none')); }
+            var found = false;
+            list.forEach(function (c) {
+                var mine = String(c.id) === String(value) || (value !== '' && String(c.name).toLowerCase() === String(value).toLowerCase());
+                found = found || mine;
+                var o = h('option', { value: String(c.id), text: c.name + ' - ' + (c.online ? t('ui_computers_online') : t('ui_computers_offline')) + (c.own ? '' : ' - ' + t('ui_computers_shared')) });
+                o.setAttribute('data-name', c.name);
+                add(select, o);
+                if (mine) { o.selected = true; }
+            });
+            if (value !== '' && !found) {
+                var kept = h('option', { value: String(value), text: String(value) });
+                add(select, kept);
+                kept.selected = true;
+            }
+        });
+        select.addEventListener('change', function () {
+            var o = select.options[select.selectedIndex];
+            onPick(o ? o.getAttribute('data-name') || '' : '');
+        });
+        return { el: wrap, input: select };
+    }
+
     function computersBox() {
         var list = h('div', { 'class': 'am-computers' });
         var msg = h('p', { 'class': 'am-msg', role: 'status' });
@@ -223,6 +292,7 @@
                 btn(t('ui_computers_load'), { small: true, icon: 'refresh', onclick: function (b) { load(b); } })
             ]),
             h('p', { 'class': 'am-help', text: t('ui_computers_intro') }),
+            lendspareControls(),
             h('div', { 'class': 'am-kv' }, [h('span', { text: t('ui_computers_code') }), code]),
             msg, list
         ]);
@@ -502,7 +572,16 @@
                 f.error = h('p', { 'class': 'am-field-error', role: 'alert', hidden: true });
                 add(f.el, f.error);
             } else {
-                if (type === 'select') {
+                if (def.picker === 'computers') {
+                    var picker = computerPicker(String(value === null || value === undefined ? '' : value), function (name) {
+                        // A name still at the driver's label follows the computer picked.
+                        if (name && (nameF.input.value === driver.label || nameF.input.value === '')) { nameF.input.value = name; }
+                    });
+                    control = picker.input;
+                    f = field(label, picker.el, { required: !!def.required, help: help, name: 'config.' + def.name });
+                    control.id = picker.el.id + '-select';
+                    f.el.querySelector('label').setAttribute('for', control.id);
+                } else if (type === 'select') {
                     control = h('select');
                     var optionsMap = def.options || {};
                     Object.keys(optionsMap).forEach(function (k) {
@@ -521,7 +600,7 @@
                 }
                 var secretSaved = isSecret && secretsSet[def.name];
                 if (isSecret && secretSaved) { control.setAttribute('placeholder', t('ui_secret_saved_placeholder')); }
-                f = field(label, control, { required: !!def.required && !(isSecret && secretSaved), help: help, name: 'config.' + def.name });
+                if (!f) { f = field(label, control, { required: !!def.required && !(isSecret && secretSaved), help: help, name: 'config.' + def.name }); }
                 if (secretSaved) { add(f.el, h('span', { 'class': 'am-secret-note', text: t('ui_secret_saved') })); }
             }
 
@@ -530,7 +609,7 @@
             fields['config.' + def.name] = f;
             inputs[def.name] = control;
             configFields[def.name] = f;
-            control.addEventListener(type === 'select' || type === 'bool' ? 'change' : 'input', function () {
+            control.addEventListener(type === 'select' || type === 'bool' || control.tagName === 'SELECT' ? 'change' : 'input', function () {
                 invalidate();
                 refreshVisibility();
                 if (driver.id === 's3' && def.name === 'preset') { applyS3Preset(control.value); }
@@ -698,9 +777,13 @@
         drawButtons();
     }
 
-    function mountDialog(existing) {
+    /** `driverId` skips the picker (back from "Connect LendSpare": straight to the computer form). */
+    function mountDialog(existing, driverId) {
         var box = openModal({ title: existing ? t('ui_mount_edit_title', { name: existing.name }) : t('ui_mount_add'), sticky: true });
-        if (existing) {
+        var preset = !existing && driverId ? driverById(driverId) : null;
+        if (preset && preset.available !== false) {
+            mountForm(box, preset, null);
+        } else if (existing) {
             var d = driverById(existing.driver);
             if (!d) { add(box.body, h('p', { 'class': 'am-error-text', text: t('error_driver_unknown') })); return; }
             mountForm(box, d, existing);

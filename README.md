@@ -138,9 +138,16 @@ access, and **this site's code**.
 - **Quotas, both sides**: the computer's folders have quotas (shown, checked before an upload);
   files from a computer fill a site folder only up to the mount's `site_quota_mb`, checked for
   the whole batch before anything moves.
-- **Key**: a LendSpare key - the mount's own, else `cms.settings.aMount.computers.api_key` /
-  `AMOUNT_GATEWAY_KEY` (aIMage's ai.artur.work key does not reach computers any more). On
-  LendSpare, allow "Shared folders on your computers" for that key. Another LendSpare address
+- **Connect LendSpare**: the button on the aMount page (and in the mount form) sends the manager to
+  LendSpare, they sign in and allow this site (read, or read and write), and come back with a key
+  of their own - the form then offers their computers in a list instead of a name to type. OAuth2
+  code + PKCE (`Computer\Connect`); the way back passes the public `/amount/lendspare-return`
+  relay because the manager refuses a foreign Referer. The key is kept per manager, encrypted, in
+  `amount_state` (`Computer\ConnectedKey`); a shared mount uses the key of the manager who set it up.
+- **Key**: a LendSpare key - the mount's own, else its manager's from *Connect LendSpare*, else
+  `cms.settings.aMount.computers.api_key` / `AMOUNT_GATEWAY_KEY` (aIMage's ai.artur.work key does
+  not reach computers any more). A pasted key needs "Shared folders on your computers" allowed on
+  LendSpare. Another LendSpare address
   (a local one, for tests): `computers.url` / `AMOUNT_LENDSPARE_URL`. Needs ext-sodium, or PHP 8.4's OpenSSL.
 - **Which site**: `Computer\SiteAddress` knows the installation's domains (sMultisite rows,
   `EVO_SITE_HOSTNAMES`, a pinned `EVO_SITE_URL`) and its public address even in the CLI worker

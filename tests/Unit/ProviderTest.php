@@ -2,6 +2,7 @@
 
 use Elcreator\aMount\Console\SyncHandler;
 use Elcreator\aMount\Listeners\Cleanup;
+use Elcreator\aMount\Listeners\ConnectReturn;
 use Elcreator\aMount\Listeners\NotFound;
 use Elcreator\aMount\aMountServiceProvider;
 use EvolutionCMS\Services\SystemTasks\SystemTaskRegistry;
@@ -77,7 +78,7 @@ it('listens to the CMS events it needs', function () {
         ->and(method_exists(Cleanup::class, 'user'))->toBeTrue();
 });
 
-it('does not answer page-not-found when serving is switched off', function () {
+it('does not serve files on page-not-found when serving is switched off, only the way back from LendSpare', function () {
     config(['cms.settings.aMount.serve.enabled' => false]);
 
     $app = new Container();
@@ -85,7 +86,7 @@ it('does not answer page-not-found when serving is switched off', function () {
 
     amountCall(amountProvider($app), 'registerEvents');
 
-    expect($events->hasListeners('evolution.OnPageNotFound'))->toBeFalse()
+    expect($events->getRawListeners()['evolution.OnPageNotFound'] ?? [])->toBe([[ConnectReturn::class, 'handle']])
         ->and($events->hasListeners('evolution.OnManagerDeleteUser'))->toBeTrue();
 });
 

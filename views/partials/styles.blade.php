@@ -217,6 +217,10 @@
     .am-msg.is-ok { color: var(--am-ok); }
 
     /* Folder picker */
+    /* The computer field and "Connect LendSpare" (a link that leaves for LendSpare) */
+    .am-computer-picker { display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
+    .am-computer-picker select { width: 100%; }
+    .am-connect { align-self: flex-start; text-decoration: none; }
     .am-picker { border: 1px solid var(--am-border); border-radius: 6px; background: #fff; margin-top: 0.4rem; }
     .am-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem; padding: 0.4rem 0.55rem; border-bottom: 1px solid var(--am-border); font-size: 0.82rem; }
     .am-crumb { background: none; border: 0; padding: 0.1rem 0.25rem; font: inherit; color: var(--am-accent); cursor: pointer; border-radius: 3px; }
