@@ -23,6 +23,7 @@ use RuntimeException;
  */
 abstract class Driver
 {
+    public const GROUP_COMPUTER = 'computer'; // the person's own computers (LendSpare), offered first
     public const GROUP_OBJECT = 'object';   // S3 and S3-compatible, GCS, Azure ...
     public const GROUP_CLOUD = 'cloud';     // Google Drive, Dropbox, OneDrive
     public const GROUP_SERVER = 'server';   // SFTP, FTP, WebDAV, local

@@ -194,7 +194,7 @@ it('has every string the page and the script ask for in the English lang file', 
     foreach (['auto', 'redirect', 'proxy'] as $v) {
         $dynamic[] = 'ui_serve_' . $v;
     }
-    foreach (['object', 'cloud', 'server', 'other'] as $v) {
+    foreach (['computer', 'object', 'cloud', 'server', 'other'] as $v) {
         $dynamic[] = 'ui_group_' . $v;
     }
     foreach (['ok', 'error', 'unknown', 'queued', 'scanning', 'uploading', 'done', 'failed', 'cancelled', 'pending', 'uploaded', 'expired'] as $v) {

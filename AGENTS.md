@@ -98,6 +98,12 @@ ci/ .github/                 builds a full CMS with the plugin inside (Docker), 
   `Operations::conflictPolicy()` ties MCP calls to eMCP's `CallPermissions::destructiveAllowed()`.
   `LocalMailbox` is the only public endpoint aMount answers besides served files: tokens are
   random, live only while this site's own transfer holds them, and anything else is 404.
+  The other public stop is `ConnectReturn` (`/amount/lendspare-return`): the way back from
+  LendSpare's "Connect a site" page (`Computer\Connect`, PKCE), registered even with serving
+  off. It only forwards `code/state/error` to the manager callback path (never a URL from the
+  query); the callback proves the state and trades the code. The key is per manager
+  (`ConnectedKey`, encrypted in `amount_state`) and sits between a mount's own key and the
+  configured one in `KeySource`; `Mount::filesystem()` passes the owner, else `configuredBy()`.
 
 ## HTTP contract (JSON)
 

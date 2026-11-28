@@ -666,6 +666,7 @@
         S.flags = r.flags || {};
         S.groups = r.groups || [];
         S.limits = r.limits || {};
+        S.computers = r.computers || {};
         if (r.csrf_token) { CFG.csrf = r.csrf_token; }
         S.loaded = true;
         $('am-tab-server').hidden = !S.flags.may_manage;

@@ -2,6 +2,8 @@
 
 namespace Elcreator\aMount\Http\Controllers;
 
+use Elcreator\aMount\Computer\ConnectedKey;
+use Elcreator\aMount\Computer\KeySource;
 use Elcreator\aMount\Drivers\Drivers;
 use Elcreator\aMount\Models\Run;
 use Elcreator\aMount\Queue\Dispatcher;
@@ -51,6 +53,10 @@ class BootstrapController extends Controller
                     'use_udperms' => $principal->udperms,
                     'serve_enabled' => Config::serveEnabled(),
                 ],
+                // Which LendSpare key lists this manager's computers: their own from "Connect LendSpare",
+                // the site's configured one, or none yet (the page then offers to connect).
+                'computers' => ['key' => ConnectedKey::get($actor->userId()) !== null ? 'connected'
+                    : (KeySource::resolve('', null) !== null ? 'configured' : null)],
                 'user_id' => $actor->userId(),
                 'groups' => $manage ? $this->userGroups() : [],
                 'limits' => [

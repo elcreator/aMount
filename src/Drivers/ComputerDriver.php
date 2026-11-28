@@ -39,6 +39,11 @@ final class ComputerDriver extends Driver
         return 'My computer (LendSpare)';
     }
 
+    public function group(): string
+    {
+        return self::GROUP_COMPUTER;
+    }
+
     public function packages(): array
     {
         // Already in every Evolution CMS core; the seal needs ext-sodium or PHP 8.4's OpenSSL.
@@ -69,7 +74,8 @@ final class ComputerDriver extends Driver
     public function fields(): array
     {
         return [
-            self::text('computer', true, ['help' => 'aMount::global.h_computer']),
+            // The form offers the account's computers to pick from (`picker`), once LendSpare is connected.
+            self::text('computer', true, ['help' => 'aMount::global.h_computer', 'picker' => 'computers']),
             self::text('share', false, ['help' => 'aMount::global.h_computer_share']),
             self::secret('api_key', false, ['help' => 'aMount::global.h_computer_api_key']),
             self::text('gateway', false, ['default' => Gateway::DEFAULT_URL]),
